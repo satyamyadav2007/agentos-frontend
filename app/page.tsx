@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 
 // Naya Dynamic API URL for Vercel/Render Deployment
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://agentos-api-5suh.onrender.com";
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
@@ -12,6 +12,82 @@ export default function Home() {
   const [causalData, setCausalData] = useState<any[]>([]);
   const [repoName, setRepoName] = useState("owner/repo-name");
   const [githubToken, setGithubToken] = useState("");
+  const [jiraLoading, setJiraLoading] = useState(false); 
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatMessage, setChatMessage] = useState("");
+  const [chatHistory, setChatHistory] = useState<{role: string, content: string}[]>([
+    { role: "ai", content: "Hello Chief. I'm analyzing your GitHub data. What would you like to know?" }
+  ]);
+  const [isChatTyping, setIsChatTyping] = useState(false);
+
+  const handleSendMessage = async () => {
+    if (!chatMessage.trim()) return;
+    
+    // Add user message to UI immediately
+    const userMsg = chatMessage;
+    setChatHistory(prev => [...prev, { role: "human", content: userMsg }]);
+    setChatMessage("");
+    setIsChatTyping(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // IMPORTANT: Hum dashboard ka current 'results' data context ke roop mein bhej rahe hain!
+        body: JSON.stringify({
+          message: userMsg,
+          context_data: results 
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (result.status === "success") {
+        setChatHistory(prev => [...prev, { role: "ai", content: result.reply }]);
+      } else {
+        setChatHistory(prev => [...prev, { role: "ai", content: "Sorry, I encountered an error analyzing the graph." }]);
+      }
+    } catch (error) {
+      console.error("Chat API Error:", error);
+    } finally {
+      setIsChatTyping(false);
+    }
+  };
+  
+  // 🚨 CORRECTED: Added title and prd_content parameters here
+  const handleExportToJira = async (title: string, prd_content: string) => {
+    setJiraLoading(true);
+
+    // 🚨 FASTAPI 422 FIX: Ensure values are NEVER undefined before stringify
+    const safeTitle = title || "AI Generated PRD Task";
+    const safeContent = prd_content || "PRD details will be added here.";
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/export-jira`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: safeTitle,
+          prd_content: safeContent 
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.status === "success") {
+        alert(`✅ Magic Success! ${result.message}`);
+      } else {
+        alert(`❌ Error: ${result.message}`);
+      }
+    } catch (error) {
+      console.error("Failed to export to Jira:", error);
+      alert("❌ Backend error! Uvicorn server check karo.");
+    } finally {
+      setJiraLoading(false);
+    }
+  };
 
   const fetchCausalSummary = async () => {
     try {
@@ -69,7 +145,7 @@ export default function Home() {
     <main className="min-h-screen bg-gray-50 p-10 font-sans text-gray-900">
       <div className="max-w-6xl mx-auto">
         <div className="mb-10">
-          <h1 className="text-4xl font-extrabold mb-2 text-gray-900 tracking-tight">AI Chief Product Officer 🚀</h1>
+          <h1 className="text-4xl font-extrabold mb-2 text-gray-900 tracking-tight">AI The Voice of Customer 🚀</h1>
           <p className="text-gray-500 font-medium">Autonomous insights engine for enterprise product teams.</p>
         </div>
 
@@ -258,21 +334,99 @@ export default function Home() {
                         AUTO-GENERATED PRD
                       </span>
                       <p className="text-sm text-blue-800 font-medium">Ready for Engineering Handoff</p>
-                    </div>
+                    </div> 
+                    
                     
                     <div className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed font-mono bg-white p-4 rounded border border-blue-100 shadow-sm">
                       {item.prd_draft}
                     </div>
-                    
-                    <button className="mt-3 text-sm bg-black text-white px-4 py-2 rounded shadow hover:bg-gray-800 transition-colors">
-                      Export to Jira (Coming Soon)
+                    <button 
+                      onClick={() => handleExportToJira(item.originalText, item.prd_draft)}
+                      disabled={jiraLoading}
+                      className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 disabled:bg-gray-400 transition-all"
+                    >
+                      {jiraLoading ? "Exporting to Jira..." : "Export to Jira"}
                     </button>
+                    
                   </div>
                 )}
               </div>
             ))}
           </div>
         )}
+      </div>
+
+      {/* ========================================== */}
+      {/* FLOATING EXECUTIVE AI CHAT WIDGET */}
+      {/* ========================================== */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+        
+        {/* Chat Window */}
+        {isChatOpen && (
+          <div className="bg-white w-96 rounded-2xl shadow-2xl border border-gray-200 mb-4 overflow-hidden flex flex-col transition-all duration-300 transform origin-bottom-right">
+            {/* Header */}
+            <div className="bg-gray-900 text-white p-4 flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🤖</span>
+                <div>
+                  <h4 className="font-bold text-sm">AgentOS CPO</h4>
+                  <p className="text-xs text-gray-400">Context-Aware AI</p>
+                </div>
+              </div>
+              <button onClick={() => setIsChatOpen(false)} className="text-gray-400 hover:text-white">
+                ✕
+              </button>
+            </div>
+            
+            {/* Messages Area */}
+            <div className="h-80 p-4 overflow-y-auto bg-gray-50 flex flex-col gap-3">
+              {chatHistory.map((msg, idx) => (
+                <div key={idx} className={`max-w-[85%] p-3 rounded-xl text-sm ${msg.role === "human" ? "bg-black text-white self-end rounded-br-none" : "bg-white border border-gray-200 text-gray-800 self-start rounded-bl-none shadow-sm"}`}>
+                  {msg.content}
+                </div>
+              ))}
+              {isChatTyping && (
+                <div className="bg-white border border-gray-200 text-gray-500 self-start p-3 rounded-xl rounded-bl-none shadow-sm text-xs font-medium flex gap-1">
+                  <span className="animate-bounce">●</span><span className="animate-bounce delay-100">●</span><span className="animate-bounce delay-200">●</span>
+                </div>
+              )}
+            </div>
+
+            {/* Input Area */}
+            <div className="p-3 bg-white border-t border-gray-100 flex gap-2">
+              <input 
+                type="text" 
+                value={chatMessage}
+                onChange={(e) => setChatMessage(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                placeholder="Ask about revenue risk..."
+                className="flex-1 bg-gray-100 p-2 rounded-lg text-sm outline-none focus:ring-1 focus:ring-black"
+              />
+              <button 
+                onClick={handleSendMessage}
+                disabled={isChatTyping}
+                className="bg-black text-white p-2 rounded-lg hover:bg-gray-800 transition-colors"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Floating Toggle Button */}
+        <button 
+          onClick={() => setIsChatOpen(!isChatOpen)}
+          className="bg-black text-white p-4 rounded-full shadow-2xl hover:scale-105 transition-transform flex items-center justify-center gap-2"
+        >
+          {isChatOpen ? (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          ) : (
+            <>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+              <span className="font-bold">Ask AI CPO</span>
+            </>
+          )}
+        </button>
       </div>
     </main>
   );
