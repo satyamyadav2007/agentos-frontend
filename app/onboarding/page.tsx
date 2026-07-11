@@ -41,9 +41,9 @@ export default function CreateWorkspace() {
         },
         // ⚡ CRITICAL FIX: Mapped 'companySize' to 'size' so FastAPI accepts it
         body: JSON.stringify({
-          company_name: formData.companyName,
+          companyName: formData.companyName,
           industry: formData.industry,
-          size: formData.companySize, 
+          companySize: formData.companySize, 
           region: formData.region
         })
       });
