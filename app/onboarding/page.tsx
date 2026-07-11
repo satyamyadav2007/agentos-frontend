@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Sparkles, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '@clerk/nextjs';
@@ -21,7 +21,7 @@ export default function CreateWorkspace() {
     region: ''
   });
 
-  const handleNext = async (e: React.FormEvent) => {
+  const handleNext = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
     setErrorMsg('');
@@ -39,7 +39,13 @@ export default function CreateWorkspace() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(formData)
+        // ⚡ CRITICAL FIX: Mapped 'companySize' to 'size' so FastAPI accepts it
+        body: JSON.stringify({
+          companyName: formData.companyName,
+          industry: formData.industry,
+          size: formData.companySize, 
+          region: formData.region
+        })
       });
 
       const result = await response.json();
@@ -166,7 +172,6 @@ export default function CreateWorkspace() {
             </div>
           </div>
 
-          {/* ⚡ ENTERPRISE BUTTON STATE */}
           <button 
             type="submit" 
             disabled={isSubmitting}
