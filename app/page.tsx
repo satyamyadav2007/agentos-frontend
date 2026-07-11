@@ -13,7 +13,7 @@ export default async function LandingPage() {
     redirect('/onboarding');
   }
 
-  // Agar user logged in NAHI hai, toh usko Login page/button dikhao
+  // Agar user logged in NAHI hai, toh usko Login page/button dikhao...........
   return (
     <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-6 text-center">
       <h1 className="text-5xl md:text-7xl font-black mb-6 tracking-tight">
