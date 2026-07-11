@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
+import { Suspense } from 'react';
 import { ArrowRight, CheckCircle2, Link as LinkIcon, Database, Ticket, Hash } from 'lucide-react';
 
-export default function IntegrationsPage() {
+function IntegrationsContent() {
+  
   
   const router = useRouter();
   const [connectedTools, setConnectedTools] = useState<string[]>([]);
@@ -522,5 +524,12 @@ const INTEGRATION_CATEGORIES = [
 
       </div>
     </div>
+  );
+}
+export default function IntegrationsPage() {
+  return (
+    <Suspense fallback={<div className="text-white text-center p-10">Loading AgentOS Integrations...</div>}>
+      <IntegrationsContent />
+    </Suspense>
   );
 }
