@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { Suspense } from 'react';
-import { ArrowRight, CheckCircle2, Link as LinkIcon, Database, Ticket, Hash } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Link as LinkIcon, Database,  Ticket, Hash } from 'lucide-react';
 
 function IntegrationsContent() {
   
@@ -20,22 +20,47 @@ function IntegrationsContent() {
     const state = searchParams.get('state');
     const installationId = searchParams.get('installation_id');
 
-    // 1. GITHUB FLOW
-    if (installationId) {
-      fetch('https://agentos-api-5suh.onrender.com/api/integrations/github/connect', {
+    // Tumhare useEffect ya function ke andar jahan yeh code hai
+if (installationId) {
+  const connectGitHub = async () => {
+    try {
+      // 1. Clerk se token lo (make sure getToken is imported/available from useAuth)
+      const token = await getToken(); 
+      
+      const response = await fetch('https://agentos-api-5suh.onrender.com/api/integrations/github/connect', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ installation_id: installationId, workspace_id: workspaceId })
-      }).then(res => res.json()).then(data => {
-        if (data.status === 'connected') {
-          setConnectedTools(prev => prev.includes('GitHub') ? prev : [...prev, 'GitHub']);
-          window.history.replaceState({}, document.title, "/onboarding/integrations");
-        }
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // ⚡ YEH LINE MISSING THI
+        },
+        body: JSON.stringify({ 
+          installation_id: installationId, 
+          workspace_id: workspaceId 
+        })
       });
+
+      const data = await response.json();
+
+      if (response.ok && data.status === 'connected') {
+        // UI ko green karne wala state update
+        setConnectedTools(prev => prev.includes('GitHub') ? prev : [...prev, 'GitHub']);
+        
+        // URL se code/installation_id clean karne ke liye
+        window.history.replaceState({}, document.title, "/onboarding/integrations");
+        
+        console.log("✅ GitHub successfully connected!");
+      } else {
+        console.error("🚨 Backend rejected GitHub connection:", data);
+      }
+    } catch (error) {
+      console.error("🚨 Error in fetch call:", error);
     }
+  };
 
-    if (!authCode) return; // Agar URL mein code nahi hai, toh aage ke checks mat karo
+  connectGitHub();
+}
 
+if (!authCode) return; // Agar URL mein code nahi hai, toh aage ke checks mat karo...
     // ========================================================
     // ⚡ UNIVERSAL OAUTH CALLBACK HANDLER (Enterprise Logic)
     // ========================================================
@@ -532,4 +557,21 @@ export default function IntegrationsPage() {
       <IntegrationsContent />
     </Suspense>
   );
+}
+
+async function getToken(): Promise<string> {
+  // Try common client-side locations for a stored auth token
+  if (typeof window === 'undefined') throw new Error('Not running in browser');
+
+  const possibleKeys = ['agentos_token', 'agentos_access_token', 'token', 'access_token'];
+  for (const k of possibleKeys) {
+    const v = localStorage.getItem(k);
+    if (v) return v;
+  }
+
+  // Try cookies (HTTP-only won't be accessible but try common non-http-only name)
+  const cookieMatch = document.cookie.match(/(?:^|; )(?:agentos_token|agentos_access_token|token|access_token)=([^;]+)/);
+  if (cookieMatch) return decodeURIComponent(cookieMatch[1]);
+
+  throw new Error('No auth token found');
 }
