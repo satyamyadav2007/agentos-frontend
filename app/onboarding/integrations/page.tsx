@@ -2,17 +2,39 @@
 
 import { useAuth } from '@clerk/nextjs';
 import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams, useRouter,  } from 'next/navigation';
 import { ArrowRight, CheckCircle2, Link as LinkIcon, Database, Ticket, Hash } from 'lucide-react';
 
 function IntegrationsContent() {
-  const router = useRouter();
   const [connectedTools, setConnectedTools] = useState<string[]>([]);
   const [isConnecting, setIsConnecting] = useState<string | null>(null);
   const searchParams = useSearchParams();
-  const { getToken } = useAuth();
+  const router = useRouter();
+  const { getToken } = useAuth(); 
 
+  // 👉 YEH NAYA BLOCK ADD KARO (Load from LocalStorage)
   useEffect(() => {
+    const savedTools = localStorage.getItem("connected_tools");
+    if (savedTools) {
+      setConnectedTools(JSON.parse(savedTools));
+    }
+  
+
+  // 👉 YEH HELPER FUNCTION ADD KARO (Save to LocalStorage)
+    const markToolAsConnected = (toolName: string) => {
+      setConnectedTools(prev => {
+        if (prev.includes(toolName)) return prev; // Agar pehle se hai toh ignore
+        const updated = [...prev, toolName];
+        localStorage.setItem("connected_tools", JSON.stringify(updated));
+        return updated;
+      });
+    };
+
+
+
+
+
+
     const oauthToolMap: Record<string, string> = {
       'jira_auth': 'Jira',
       'slack_auth': 'Slack',
