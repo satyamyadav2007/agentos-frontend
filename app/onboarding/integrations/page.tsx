@@ -19,9 +19,7 @@ function IntegrationsContent() {
     const authCode = searchParams.get('code');
     const state = searchParams.get('state');
     const installationId = searchParams.get('installation_id');
-
-    // Tumhare useEffect ya function ke andar jahan yeh code hai
-if (installationId) {
+    if (installationId) {
   const connectGitHub = async () => {
     try {
       // 1. Clerk se token lo (make sure getToken is imported/available from useAuth)
@@ -61,6 +59,9 @@ if (installationId) {
 }
 
 if (!authCode) return; // Agar URL mein code nahi hai, toh aage ke checks mat karo...
+
+    
+
     // ========================================================
     // ⚡ UNIVERSAL OAUTH CALLBACK HANDLER (Enterprise Logic)
     // ========================================================
