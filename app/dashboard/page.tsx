@@ -1,7 +1,7 @@
 'use client';
 
 import { useTheme } from 'next-themes';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation'; // ⚡ Yeh naya import add karo
 // ⚡ FIX 2: Imported UserButton from Clerk
 import { useAuth, useUser, UserButton } from '@clerk/nextjs'; 
@@ -17,12 +17,228 @@ export default function AICommandCenter() {
   const [isSearching, setIsSearching] = useState(false);
   const [aiResponse, setAiResponse] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('executive');
+  // ⚡ DYNAMIC STATE: Ab saare 7 metrics backend se aayenge
   const [dashboardStats, setDashboardStats] = useState({
     criticalIncidents: 0,
-    revenueAtRisk: 0,
-    customersAffected: 0
+    revenueAtRisk: "$0", 
+    customersAffected: 0,
+    expectedChurn: 0,
+    engBlockers: 0,
+    productOpps: 0,
+    aiConfidence: "0%"
   });
-  
+  // ⚡ DYNAMIC STATE: AI Recommendations (No Dummy Data)
+  const [aiRecommendations, setAiRecommendations] = useState({
+    revenue: { title: "Analyzing Revenue Graph...", subtitle: "Calculating impact", value: "---" },
+    engineering: { title: "Analyzing Crash Logs...", subtitle: "Identifying root cause", value: "---" },
+    churn: { title: "Analyzing Sentiment...", subtitle: "Predicting churn", value: "---" }
+  });
+  // ⚡ DYNAMIC STATE: Customer Pain Explorer
+  const [customerPainData, setCustomerPainData] = useState({
+    keywords: ["Analyzing NLP...", "Gathering Signals..."],
+    clusters: [
+      { id: 1, name: "Scanning cross-platform data...", users: 0, severity: "high" },
+      { id: 2, name: "Awaiting semantic clusters...", users: 0, severity: "medium" },
+      { id: 3, name: "Processing support tickets...", users: 0, severity: "low" }
+    ]
+  });
+  // ⚡ DYNAMIC STATE: Product Opportunity (Auto-Roadmap)
+  const [productOpportunities, setProductOpportunities] = useState([
+    { id: 1, rank: "#1", title: "Synthesizing Features...", subtitle: "Scanning transcripts", userCount: "---", color: "green", score: 90 },
+    { id: 2, rank: "#2", title: "Ranking Requests...", subtitle: "Analyzing demand", userCount: "---", color: "blue", score: 75 },
+    { id: 3, rank: "#3", title: "Calculating Impact...", subtitle: "Evaluating urgency", userCount: "---", color: "purple", score: 35 },
+    { id: 4, rank: "#4", title: "Finalizing Roadmap...", subtitle: "Aligning with CRM", userCount: "---", color: "orange", score: 30 }
+  ]);
+  // ⚡ DYNAMIC STATE: Release Intelligence
+  const [releaseIntelligence, setReleaseIntelligence] = useState({
+    version: "Scanning...",
+    status: "Analyzing",
+    crashIncrease: "--",
+    revenueImpact: "--",
+    aiAction: "Calculating Risk..."
+  });
+  // ⚡ DYNAMIC STATE: Meeting Intelligence
+  const [meetingIntelligence, setMeetingIntelligence] = useState({
+    title: "Loading Meetings...",
+    lastSync: "--",
+    participants: [] as {id: number, role: string, status: string, context: string, color: string, pulse: boolean}[]
+  });
+
+  // Helper for dynamic meeting participant colors & icons
+  const getMeetingStyles = (color: string, pulse: boolean) => {
+    const base = pulse ? "animate-pulse " : "";
+    switch(color) {
+      case 'orange': return { card: 'border-orange-900/30 hover:border-orange-500/50 shadow-lg', iconBg: 'bg-orange-500/10 text-orange-500', textGlow: `text-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.4)] ${base}`, icon: <UserMinus size={16} /> };
+      case 'yellow': return { card: 'border-yellow-900/30 hover:border-yellow-500/50 shadow-lg', iconBg: 'bg-yellow-500/10 text-yellow-500', textGlow: `text-yellow-500 drop-shadow-[0_0_8px_rgba(234,179,8,0.4)] ${base}`, icon: <Map size={16} /> };
+      case 'red': return { card: 'border-red-900/40 hover:border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.05)]', iconBg: 'bg-red-500/10 text-red-500', textGlow: `text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.5)] ${base}`, icon: <ShieldAlert size={16} /> };
+      case 'blue': 
+      default: return { card: 'border-blue-900/30 hover:border-blue-500/50 shadow-lg', iconBg: 'bg-blue-500/10 text-blue-500', textGlow: `text-blue-400 drop-shadow-[0_0_8px_rgba(59,130,246,0.4)] ${base}`, icon: <Megaphone size={16} /> };
+    }
+  };
+
+  // Helper function for dynamic opportunity colors
+  const getOpportunityStyles = (colorStyle: string) => {
+    switch(colorStyle) {
+      case 'green': return { bgBar: 'bg-green-500/5 group-hover:bg-green-500/10', textHover: 'group-hover:text-green-400', iconBg: 'group-hover:bg-green-900/20', borderOuterHover: 'hover:border-green-500/50', borderInnerHover: 'group-hover:border-green-500/30', iconText: 'text-green-500', countText: 'text-green-400' };
+      case 'blue': return { bgBar: 'bg-blue-500/5 group-hover:bg-blue-500/10', textHover: 'group-hover:text-blue-400', iconBg: 'group-hover:bg-blue-900/20', borderOuterHover: 'hover:border-blue-500/50', borderInnerHover: 'group-hover:border-blue-500/30', iconText: 'text-blue-500', countText: 'text-blue-400' };
+      case 'purple': return { bgBar: 'bg-purple-500/5 group-hover:bg-purple-500/10', textHover: 'group-hover:text-purple-400', iconBg: 'group-hover:bg-purple-900/20', borderOuterHover: 'hover:border-purple-500/50', borderInnerHover: 'group-hover:border-purple-500/30', iconText: 'text-purple-500', countText: 'text-purple-400' };
+      case 'orange':
+      default: return { bgBar: 'bg-orange-500/5 group-hover:bg-orange-500/10', textHover: 'group-hover:text-orange-400', iconBg: 'group-hover:bg-orange-900/20', borderOuterHover: 'hover:border-orange-500/50', borderInnerHover: 'group-hover:border-orange-500/30', iconText: 'text-orange-500', countText: 'text-orange-400' };
+    }
+  };
+
+  // Helper function for dynamic severity colors
+  const getSeverityStyles = (severity: string) => {
+    switch(severity) {
+      case 'high': return { bg: 'from-red-900/10', border: 'border-red-900/30 hover:border-red-500/50', dot: 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]', text: 'text-red-400 bg-red-500/10' };
+      case 'medium': return { bg: 'from-orange-900/10', border: 'border-orange-900/30 hover:border-orange-500/50', dot: 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.8)]', text: 'text-orange-400 bg-orange-500/10' };
+      case 'low': 
+      default: return { bg: 'from-blue-900/10', border: 'border-blue-900/30 hover:border-blue-500/50', dot: 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]', text: 'text-blue-400 bg-blue-500/10' };
+    }
+  };
+  // ⚡ DYNAMIC STATE: Root Cause Graph
+  const [rootCauseGraph, setRootCauseGraph] = useState({
+    incidentId: "Loading...",
+    title: "Graph Engine Booting...",
+    nodes: [] as {id: number, type: string, icon: string, color: string, action: string, arrowColor: string | null}[]
+  });
+
+  // Helper for rendering dynamic icons from JSON strings
+  const renderGraphIcon = (iconName: string) => {
+    switch(iconName) {
+      case 'User': return <User size={24} />;
+      case 'Ticket': return <Ticket size={24} />;
+      case 'Hash': return <Hash size={24} />;
+      case 'TerminalSquare': return <TerminalSquare size={24} />;
+      case 'GitCommit': return <GitCommit size={24} />;
+      case 'Rocket': return <Rocket size={24} />;
+      case 'ServerCrash': return <ServerCrash size={24} />;
+      case 'DollarSign': return <DollarSign size={24} />;
+      default: return <Activity size={24} />;
+    }
+  };
+
+  // Helper for dynamic node styling
+  const getGraphNodeStyles = (color: string) => {
+    switch(color) {
+      case 'blue': return { wrapper: 'bg-blue-500/10 border-blue-500/30 text-blue-400 group-hover:bg-blue-500/20 group-hover:border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.1)] group-hover:shadow-[0_0_20px_rgba(59,130,246,0.3)]', text: 'group-hover:text-blue-400 text-gray-400' };
+      case 'purple': return { wrapper: 'bg-purple-500/10 border-purple-500/30 text-purple-400 group-hover:bg-purple-500/20 group-hover:border-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.1)] group-hover:shadow-[0_0_20px_rgba(168,85,247,0.3)]', text: 'group-hover:text-purple-400 text-gray-400' };
+      case 'green': return { wrapper: 'bg-green-500/10 border-green-500/30 text-green-400 group-hover:bg-green-500/20 group-hover:border-green-400 shadow-[0_0_15px_rgba(34,197,94,0.1)] group-hover:shadow-[0_0_20px_rgba(34,197,94,0.3)]', text: 'group-hover:text-green-400 text-gray-400' };
+      case 'yellow': return { wrapper: 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400 group-hover:bg-yellow-500/20 group-hover:border-yellow-400 shadow-[0_0_15px_rgba(234,179,8,0.1)] group-hover:shadow-[0_0_20px_rgba(234,179,8,0.3)]', text: 'group-hover:text-yellow-400 text-gray-400' };
+      case 'indigo': return { wrapper: 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400 group-hover:bg-indigo-500/20 group-hover:border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.1)] group-hover:shadow-[0_0_20px_rgba(99,102,241,0.3)]', text: 'group-hover:text-indigo-400 text-gray-400' };
+      case 'red-pulse': return { wrapper: 'bg-red-500/10 border-red-500/50 text-red-500 group-hover:bg-red-500/20 group-hover:border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.2)] group-hover:shadow-[0_0_20px_rgba(239,68,68,0.5)] animate-pulse', text: 'group-hover:text-red-400 text-red-500/70' };
+      case 'red-glow': return { wrapper: 'bg-gradient-to-br from-red-900/40 to-[#1a0505] border-2 border-red-500/50 text-red-400 group-hover:border-red-400 shadow-[0_0_25px_rgba(239,68,68,0.3)] group-hover:shadow-[0_0_35px_rgba(239,68,68,0.6)]', text: 'group-hover:text-red-400 text-red-500' };
+      case 'gray': 
+      default: return { wrapper: 'bg-[#151515] border-gray-700 text-gray-400 group-hover:bg-gray-800 group-hover:border-gray-500', text: 'group-hover:text-gray-300 text-gray-400' };
+    }
+  };
+  // ⚡ DYNAMIC STATE: AI Inbox (Anti-Dashboard Brief)
+  const [aiInbox, setAiInbox] = useState({
+    greeting: "Analyzing Brief...",
+    churn: { text: "...", action: "" },
+    issue: { id: "...", saved: "...", action: "" },
+    release: { version: "...", risk: "...", action: "" }
+  });
+  // ⚡ DYNAMIC STATE: Automation Center
+  const [automationCenter, setAutomationCenter] = useState({
+    status: "inactive",
+    ifCondition: { metric: "Loading...", operator: "", value: "" },
+    thenActions: [] as {id: number, title: string, icon: string, color: string, pulse: boolean}[]
+  });
+
+  // Helper for Automation Icons
+  const renderAutomationIcon = (iconName: string, size: number = 20) => {
+    switch(iconName) {
+      case 'Ticket': return <Ticket size={size} />;
+      case 'Hash': return <Hash size={size} />;
+      case 'UserCheck': return <UserCheck size={size} />;
+      case 'AlertOctagon': return <AlertOctagon size={size} />;
+      case 'AlertTriangle': return <AlertTriangle size={size} />;
+      default: return <Zap size={size} />;
+    }
+  };
+
+  // Helper for Automation Styles
+  const getAutomationStyles = (color: string, pulse: boolean) => {
+    const basePulse = pulse ? "animate-pulse " : "";
+    switch(color) {
+      case 'blue': return { wrapper: 'bg-[#151515] border-gray-700 hover:border-blue-500/50 hover:shadow-[0_0_15px_rgba(59,130,246,0.15)]', iconBg: 'bg-blue-500/10 text-blue-400', text: 'group-hover:text-blue-400 text-gray-200 font-semibold' };
+      case 'purple': return { wrapper: 'bg-[#151515] border-gray-700 hover:border-purple-500/50 hover:shadow-[0_0_15px_rgba(168,85,247,0.15)]', iconBg: 'bg-purple-500/10 text-purple-400', text: 'group-hover:text-purple-400 text-gray-200 font-semibold' };
+      case 'green': return { wrapper: 'bg-[#151515] border-gray-700 hover:border-green-500/50 hover:shadow-[0_0_15px_rgba(34,197,94,0.15)]', iconBg: 'bg-green-500/10 text-green-400', text: 'group-hover:text-green-400 text-gray-200 font-semibold' };
+      case 'red': return { wrapper: 'bg-gradient-to-r from-[#1a0505] to-[#151515] border-red-900/40 hover:border-red-500/50 hover:shadow-[0_0_15px_rgba(239,68,68,0.2)]', iconBg: `bg-red-500/10 text-red-500 ${basePulse}`, text: 'text-red-400 group-hover:text-red-300 font-bold' };
+      default: return { wrapper: 'bg-[#151515] border-gray-700 hover:border-gray-500/50 hover:shadow-sm', iconBg: 'bg-gray-800 text-gray-400', text: 'group-hover:text-gray-300 text-gray-200 font-semibold' };
+    }
+  };
+  // ⚡ DYNAMIC STATE: Role-Based Command Center
+  const [roleBasedData, setRoleBasedData] = useState({
+    ceoMetrics: [] as {id: number, label: string, icon: string, value: string, subtext: string, color: string}[],
+    engBugs: [] as {id: number, title: string, errorCode: string, affected: number, revImpact: string, rootCause: string, assigneeInitials: string, assigneeName: string, eta: string, color: string}[],
+    pmFeatures: [] as {id: number, title: string, description: string, priority: string, priorityColor: string, effort: string, revUnlock: string, aiScore: number, scoreColor: string}[]
+  });
+
+  // Helper for CEO Metric Cards
+  const getCeoStyles = (color: string) => {
+    switch(color) {
+      case 'green': return { border: 'border-green-900/30 hover:border-green-500/50', icon: <DollarSign size={14} className="text-green-500"/>, valueText: 'text-green-400 drop-shadow-[0_0_10px_rgba(34,197,94,0.4)]' };
+      case 'red': return { border: 'border-red-900/30 hover:border-red-500/50', icon: <AlertTriangle size={14} className="text-red-500"/>, valueText: 'text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.4)]' };
+      case 'blue': return { border: 'border-blue-900/30 hover:border-blue-500/50', icon: <TrendingUp size={14} className="text-blue-500"/>, valueText: 'text-white' };
+      case 'pink': return { border: 'border-pink-900/30 hover:border-pink-500/50', icon: <Smile size={14} className="text-pink-500"/>, valueText: 'text-pink-400 drop-shadow-[0_0_10px_rgba(236,72,153,0.4)]' };
+      case 'orange': return { border: 'border-orange-900/30 hover:border-orange-500/50', icon: <Activity size={14} className="text-orange-500"/>, valueText: 'text-orange-400' };
+      case 'purple': return { border: 'border-purple-500/30 hover:border-purple-500/60 shadow-[0_0_20px_rgba(168,85,247,0.1)] from-[#111] to-purple-900/10 bg-gradient-to-br', icon: <Cpu size={14} className="text-purple-500 animate-pulse"/>, valueText: 'text-purple-400 drop-shadow-[0_0_10px_rgba(168,85,247,0.5)]', subText: 'text-purple-300' };
+      default: return { border: 'border-gray-800 hover:border-gray-500/50', icon: <Activity size={14} className="text-gray-500"/>, valueText: 'text-white' };
+    }
+  };
+
+  // Helper for Engineering Bug Rows
+  const getEngStyles = (color: string) => {
+    switch(color) {
+      case 'red': return { row: 'border-red-900/30 hover:border-red-500/50', titleHover: 'group-hover:text-red-400', codeText: 'text-red-500', revBox: 'text-red-400 bg-red-500/10', etaText: 'text-red-400' };
+      case 'orange': return { row: 'border-orange-900/30 hover:border-orange-500/50', titleHover: 'group-hover:text-orange-400', codeText: 'text-orange-500', revBox: 'text-orange-400 bg-orange-500/10', etaText: 'text-green-400' }; // Keeping green ETA for short times
+      default: return { row: 'border-gray-800 hover:border-gray-500/50', titleHover: 'group-hover:text-gray-300', codeText: 'text-gray-500', revBox: 'text-gray-400 bg-gray-800', etaText: 'text-gray-400' };
+    }
+  };
+  // ⚡ DYNAMIC STATE: AI Company Brain & Timeline
+  const [aiCompanyBrain, setAiCompanyBrain] = useState({
+    prompt: "Analyzing query...",
+    asker: "System",
+    dataSources: [] as {id: number, name: string, icon: string, color: string}[],
+    resolution: {
+      rootCause: "...", affected: "...", started: "...", reason: "...", revenueRisk: "...", recoveryTime: "...", confidence: "...", sourcesVerified: 0, actionText: "Processing..."
+    }
+  });
+
+  const [aiTimeline, setAiTimeline] = useState([
+    { id: 1, icon: "Clock", color: "gray", text: "Initializing timeline...", time: "--:--" }
+  ]);
+
+  // Helper for rendering icons dynamically
+  const renderDynamicIcon = (iconName: string, colorClass: string, size: number = 16) => {
+    const props = { size, className: colorClass };
+    switch(iconName) {
+      case 'MessageSquare': return <MessageSquare {...props} />;
+      case 'GitBranch': return <GitBranch {...props} />;
+      case 'Users': return <Users {...props} />;
+      case 'Video': return <Video {...props} />;
+      case 'PhoneCall': return <PhoneCall {...props} />;
+      case 'Star': return <Star {...props} />;
+      case 'ServerCrash': return <ServerCrash {...props} />;
+      case 'BarChart': return <BarChart {...props} />;
+      case 'AlertTriangle': return <AlertTriangle {...props} />;
+      case 'CheckCircle': return <CheckCircle {...props} />;
+      default: return <Activity {...props} />;
+    }
+  };
+
+  // Helper for Timeline Colors
+  const getTimelineStyles = (color: string) => {
+    switch(color) {
+      case 'red': return { iconWrapper: 'border-[#111] bg-red-900/50 text-red-400', box: 'border-red-900/30 bg-[#151515]', text: 'text-red-400' };
+      case 'blue': return { iconWrapper: 'border-[#111] bg-blue-900/50 text-blue-400', box: 'border-blue-900/30 bg-[#151515]', text: 'text-blue-400' };
+      case 'gray': 
+      default: return { iconWrapper: 'border-[#111] bg-gray-800 text-gray-400', box: 'border-gray-800 bg-[#151515]', text: 'text-gray-300' };
+    }
+  };
+
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   
@@ -85,32 +301,64 @@ export default function AICommandCenter() {
     alert(`⚡ AI Agent Triggered: Executing [${actionName}]`);
     console.log(`Action Executed: ${actionName}`);
   };
+  // 🧠 THE MASTER DASHBOARD FETCHER
+  // Yeh backend se poora JSON schema ek hi baar mein layega
   useEffect(() => {
-    const fetchRealData = async () => {
+    const fetchDashboardInsights = async () => {
       if (!user) return;
       
       try {
         const token = await getToken();
-        // API call to your python backend to get stats for THIS specific user email
+        const userEmail = user.primaryEmailAddress?.emailAddress;
+        
+        // Pointing to your dashboard API endpoint
         const response = await fetch('http://localhost:8000/api/dashboard-stats', {
-          method: 'POST',
+          method: 'POST', // POST rakha hai taaki user_email bhej sako
           headers: { 
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}` 
           },
-          body: JSON.stringify({ user_email: user.primaryEmailAddress?.emailAddress })
+          body: JSON.stringify({ user_email: userEmail })
         });
         
         const data = await response.json();
-        if (data.status === 'success') {
-          setDashboardStats(data.stats); // Ab Dummy hat gaya, Real data set ho gaya!
+        
+        if (data.status === 'success' && data.data) {
+          // 1. Update Core Metrics
+          if (data.data.dashboardStats) setDashboardStats(data.data.dashboardStats);
+          
+          // 2. Update AI Recommendations (Billion-Dollar UX)
+          if (data.data.aiRecommendations) setAiRecommendations(data.data.aiRecommendations);
+          
+          // 3. Update Customer Pain Explorer
+          if (data.data.customerPainData) setCustomerPainData(data.data.customerPainData);
+          
+          // 4. Update Product Opportunities
+          if (data.data.productOpportunities) setProductOpportunities(data.data.productOpportunities);
+          // 5. Update Release Intelligence
+          if (data.data.releaseIntelligence) setReleaseIntelligence(data.data.releaseIntelligence);
+          // 6. Update Meeting Intelligence
+          if (data.data.meetingIntelligence) setMeetingIntelligence(data.data.meetingIntelligence);
+          // 7. Update Root Cause Graph
+          if (data.data.rootCauseGraph) setRootCauseGraph(data.data.rootCauseGraph);
+          // 8. Update AI Inbox
+          if (data.data.aiInbox) setAiInbox(data.data.aiInbox);
+          // 9. Update Automation Center
+          if (data.data.automationCenter) setAutomationCenter(data.data.automationCenter);
+          // 10. Update Role-Based Command Center
+          if (data.data.roleBasedCommandCenter) setRoleBasedData(data.data.roleBasedCommandCenter);
+          // 11. Update AI Company Brain
+          if (data.data.aiCompanyBrain) setAiCompanyBrain(data.data.aiCompanyBrain);
+          
+          // 12. Update Timeline
+          if (data.data.aiTimeline) setAiTimeline(data.data.aiTimeline);
         }
       } catch (error) {
-        console.error("Error fetching real stats:", error);
+        console.error("🚨 Error fetching Master Dashboard Insights:", error);
       }
     };
 
-    if (mounted) fetchRealData();
+    if (mounted) fetchDashboardInsights();
   }, [user, mounted]);
 
   if (!mounted) return null;
@@ -227,83 +475,82 @@ export default function AICommandCenter() {
          
 
           
-                  {/* 🚀 1. TODAY'S EXECUTIVE BRIEF (The 7 Core Metrics) */}
+            {/* 🚀 1. TODAY'S EXECUTIVE BRIEF (The 7 Core Metrics) */}
           <div>
             <h2 className="text-xl font-semibold text-gray-200 mb-4">Today's Executive Brief</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
               <div className="bg-[#111] border border-red-900/30 p-4 rounded-xl flex flex-col justify-between hover:border-red-500/30 transition-all">
                 <span className="text-gray-400 text-xs uppercase font-semibold mb-2 flex items-center gap-1.5"><AlertTriangle size={14} className="text-red-500"/> Critical Incidents</span>
-                <span className="text-2xl font-bold text-white">4</span>
+                <span className="text-2xl font-bold text-white">{dashboardStats.criticalIncidents}</span>
               </div>
               <div className="bg-[#111] border border-orange-900/30 p-4 rounded-xl flex flex-col justify-between hover:border-orange-500/30 transition-all">
                 <span className="text-gray-400 text-xs uppercase font-semibold mb-2 flex items-center gap-1.5"><TrendingDown size={14} className="text-orange-500"/> Revenue At Risk</span>
-                <span className="text-2xl font-bold text-orange-400">$1.8M</span>
+                <span className="text-2xl font-bold text-orange-400">{dashboardStats.revenueAtRisk}</span>
               </div>
               <div className="bg-[#111] border border-blue-900/30 p-4 rounded-xl flex flex-col justify-between hover:border-blue-500/30 transition-all">
                 <span className="text-gray-400 text-xs uppercase font-semibold mb-2 flex items-center gap-1.5"><Users size={14} className="text-blue-400"/> Customers Affected</span>
-                <span className="text-2xl font-bold text-white">22</span>
+                <span className="text-2xl font-bold text-white">{dashboardStats.customersAffected}</span>
               </div>
               <div className="bg-[#111] border border-purple-900/30 p-4 rounded-xl flex flex-col justify-between hover:border-purple-500/30 transition-all">
                 <span className="text-gray-400 text-xs uppercase font-semibold mb-2 flex items-center gap-1.5"><UserMinus size={14} className="text-purple-500"/> Expected Churn</span>
-                <span className="text-2xl font-bold text-purple-400">6</span>
+                <span className="text-2xl font-bold text-purple-400">{dashboardStats.expectedChurn}</span>
               </div>
               <div className="bg-[#111] border border-yellow-900/30 p-4 rounded-xl flex flex-col justify-between hover:border-yellow-500/30 transition-all">
                 <span className="text-gray-400 text-xs uppercase font-semibold mb-2 flex items-center gap-1.5"><ShieldAlert size={14} className="text-yellow-500"/> Eng Blockers</span>
-                <span className="text-2xl font-bold text-yellow-400">3</span>
+                <span className="text-2xl font-bold text-yellow-400">{dashboardStats.engBlockers}</span>
               </div>
               <div className="bg-[#111] border border-green-900/30 p-4 rounded-xl flex flex-col justify-between hover:border-green-500/30 transition-all">
                 <span className="text-gray-400 text-xs uppercase font-semibold mb-2 flex items-center gap-1.5"><Lightbulb size={14} className="text-green-500"/> Product Opps</span>
-                <span className="text-2xl font-bold text-white">8</span>
+                <span className="text-2xl font-bold text-white">{dashboardStats.productOpps}</span>
               </div>
               <div className="bg-gradient-to-br from-[#111] to-green-900/10 border border-green-900/40 p-4 rounded-xl flex flex-col justify-between">
                 <span className="text-gray-400 text-xs uppercase font-semibold mb-2 flex items-center gap-1.5"><Activity size={14} className="text-green-400"/> AI Confidence</span>
-                <span className="text-2xl font-bold text-green-400">97%</span>
+                <span className="text-2xl font-bold text-green-400">{dashboardStats.aiConfidence}</span>
               </div>
             </div>
           </div>
-
           {/* 🚀 2. AI ANSWERS & RECOMMENDATIONS (Billion-Dollar UX) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             
             {/* Card 1: Revenue Focus */}
             <div 
-              onClick={() => handleAction('Execute Fix')}
+              onClick={() => handleAction(aiRecommendations.revenue.title)}
               className="group bg-gradient-to-b from-[#111] to-[#0a0a0a] border border-gray-800 hover:border-green-500/50 p-8 rounded-2xl flex flex-col items-center text-center transition-all cursor-pointer shadow-lg hover:shadow-[0_0_30px_rgba(74,222,128,0.1)]"
             >
               <h3 className="text-xs text-gray-500 uppercase tracking-widest font-bold mb-6">AI Says</h3>
-              <div className="text-2xl font-bold text-white mb-4 group-hover:scale-105 transition-transform">Fix Login API</div>
+              <div className="text-2xl font-bold text-white mb-4 group-hover:scale-105 transition-transform">{aiRecommendations.revenue.title}</div>
               <div className="text-green-500 animate-bounce mb-4">↓</div>
-              <div className="text-gray-400 text-sm tracking-wide uppercase mb-1">Save</div>
+              <div className="text-gray-400 text-sm tracking-wide uppercase mb-1">{aiRecommendations.revenue.subtitle}</div>
               <div className="text-3xl font-black text-green-400 drop-shadow-[0_0_15px_rgba(74,222,128,0.5)]">
-                $840,000 ARR
+                {aiRecommendations.revenue.value}
               </div>
             </div>
             
             {/* Card 2: Engineering Focus */}
             <div 
-              onClick={() => handleAction('Rollback')}
+              onClick={() => handleAction(aiRecommendations.engineering.title)}
               className="group bg-gradient-to-b from-[#111] to-[#0a0a0a] border border-gray-800 hover:border-blue-500/50 p-8 rounded-2xl flex flex-col items-center text-center transition-all cursor-pointer shadow-lg hover:shadow-[0_0_30px_rgba(59,130,246,0.1)]"
             >
               <h3 className="text-xs text-gray-500 uppercase tracking-widest font-bold mb-6">AI Says</h3>
-              <div className="text-2xl font-bold text-white mb-4 group-hover:scale-105 transition-transform">Rollback Release 4.6</div>
+              <div className="text-2xl font-bold text-white mb-4 group-hover:scale-105 transition-transform">{aiRecommendations.engineering.title}</div>
               <div className="text-blue-500 animate-bounce mb-4">↓</div>
-              <div className="text-gray-400 text-sm tracking-wide uppercase mb-1">Reduce crashes</div>
+              <div className="text-gray-400 text-sm tracking-wide uppercase mb-1">{aiRecommendations.engineering.subtitle}</div>
               <div className="text-3xl font-black text-blue-400 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">
-                68%
+                {aiRecommendations.engineering.value}
               </div>
             </div>
 
             {/* Card 3: Churn Risk Focus */}
             <div 
-              onClick={() => handleAction('Draft Apology')}
+              onClick={() => handleAction(aiRecommendations.churn.title)}
               className="group bg-gradient-to-b from-[#111] to-[#1a0505] border border-red-900/30 hover:border-red-500/50 p-8 rounded-2xl flex flex-col items-center text-center transition-all cursor-pointer shadow-lg hover:shadow-[0_0_30px_rgba(239,68,68,0.15)]"
             >
-              <h3 className="text-xs text-red-500/70 uppercase tracking-widest font-bold mb-6">Top Customer</h3>
-              <div className="text-2xl font-bold text-white mb-4 group-hover:scale-105 transition-transform">Netflix</div>
+              <h3 className="text-xs text-red-500/70 uppercase tracking-widest font-bold mb-6">Critical Alert</h3>
+              <div className="text-2xl font-bold text-white mb-4 group-hover:scale-105 transition-transform">{aiRecommendations.churn.title}</div>
               <div className="text-red-500 animate-bounce mb-4">↓</div>
-              <div className="text-gray-400 text-sm tracking-wide uppercase mb-1">Likely to churn</div>
+              <div className="text-gray-400 text-sm tracking-wide uppercase mb-1">{aiRecommendations.churn.subtitle}</div>
               <div className="text-3xl font-black text-red-400 drop-shadow-[0_0_15px_rgba(239,68,68,0.6)]">
-                Within 9 days
+                {aiRecommendations.churn.value}
               </div>
             </div>
 
@@ -504,11 +751,11 @@ export default function AICommandCenter() {
                   <MessageSquare size={14} /> Most Mentioned
                 </h3>
                 <div className="flex flex-wrap gap-3">
-                  <span className="bg-[#1a1a1a] border border-gray-700 text-gray-200 px-4 py-2 rounded-full text-sm font-medium hover:border-gray-500 transition-colors cursor-pointer">Login</span>
-                  <span className="bg-[#1a1a1a] border border-gray-700 text-gray-200 px-4 py-2 rounded-full text-sm font-medium hover:border-gray-500 transition-colors cursor-pointer">Payment</span>
-                  <span className="bg-[#1a1a1a] border border-gray-700 text-gray-200 px-4 py-2 rounded-full text-sm font-medium hover:border-gray-500 transition-colors cursor-pointer">Upload</span>
-                  <span className="bg-[#1a1a1a] border border-gray-700 text-gray-200 px-4 py-2 rounded-full text-sm font-medium hover:border-gray-500 transition-colors cursor-pointer">Search</span>
-                  <span className="bg-[#1a1a1a] border border-gray-700 text-gray-200 px-4 py-2 rounded-full text-sm font-medium hover:border-gray-500 transition-colors cursor-pointer">Notifications</span>
+                  {customerPainData.keywords.map((keyword, index) => (
+                    <span key={index} className="bg-[#1a1a1a] border border-gray-700 text-gray-200 px-4 py-2 rounded-full text-sm font-medium hover:border-gray-500 transition-colors cursor-pointer animate-pulse-slow">
+                      {keyword}
+                    </span>
+                  ))}
                 </div>
               </div>
 
@@ -518,40 +765,20 @@ export default function AICommandCenter() {
                   <Zap size={14} /> AI Clusters
                 </h3>
                 <div className="space-y-4">
-                  
-                  {/* Cluster 1: High Severity */}
-                  <div className="group flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-red-900/10 to-[#151515] border border-red-900/30 hover:border-red-500/50 transition-all cursor-pointer">
-                    <div className="flex items-center gap-3">
-                      <div className="h-2 w-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div>
-                      <span className="font-semibold text-gray-200 group-hover:text-white transition-colors">Payment Failure</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-red-400 bg-red-500/10 px-3 py-1 rounded-md">
-                      <Users size={14} /> <span className="font-bold">214</span> <span className="text-xs uppercase">users</span>
-                    </div>
-                  </div>
-
-                  {/* Cluster 2: Medium Severity */}
-                  <div className="group flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-orange-900/10 to-[#151515] border border-orange-900/30 hover:border-orange-500/50 transition-all cursor-pointer">
-                    <div className="flex items-center gap-3">
-                      <div className="h-2 w-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.8)]"></div>
-                      <span className="font-semibold text-gray-200 group-hover:text-white transition-colors">Video Upload</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-orange-400 bg-orange-500/10 px-3 py-1 rounded-md">
-                      <Users size={14} /> <span className="font-bold">93</span> <span className="text-xs uppercase">users</span>
-                    </div>
-                  </div>
-
-                  {/* Cluster 3: Feature Request / Low Severity */}
-                  <div className="group flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-blue-900/10 to-[#151515] border border-blue-900/30 hover:border-blue-500/50 transition-all cursor-pointer">
-                    <div className="flex items-center gap-3">
-                      <div className="h-2 w-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]"></div>
-                      <span className="font-semibold text-gray-200 group-hover:text-white transition-colors">Recommendations</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-blue-400 bg-blue-500/10 px-3 py-1 rounded-md">
-                      <Users size={14} /> <span className="font-bold">61</span> <span className="text-xs uppercase">users</span>
-                    </div>
-                  </div>
-
+                  {customerPainData.clusters.map((cluster) => {
+                    const styles = getSeverityStyles(cluster.severity);
+                    return (
+                      <div key={cluster.id} className={`group flex items-center justify-between p-4 rounded-xl bg-gradient-to-r ${styles.bg} to-[#151515] border ${styles.border} transition-all cursor-pointer`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`h-2 w-2 rounded-full ${styles.dot}`}></div>
+                          <span className="font-semibold text-gray-200 group-hover:text-white transition-colors">{cluster.name}</span>
+                        </div>
+                        <div className={`flex items-center gap-1.5 ${styles.text} px-3 py-1 rounded-md`}>
+                          <Users size={14} /> <span className="font-bold">{cluster.users}</span> <span className="text-xs uppercase">users</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -560,7 +787,6 @@ export default function AICommandCenter() {
           {/* 🚀 6. RELEASE INTELLIGENCE (The Deployment Risk Engine) */}
           <div className="bg-gradient-to-br from-[#111] to-[#1a0505] border border-red-900/40 p-6 md:p-8 rounded-xl w-full mb-10 relative overflow-hidden shadow-[0_0_20px_rgba(239,68,68,0.05)]">
             
-            {/* Subtle red danger glow in the background */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-red-900/20 rounded-full blur-3xl pointer-events-none"></div>
 
             <div className="flex justify-between items-center mb-8 relative z-10">
@@ -573,7 +799,7 @@ export default function AICommandCenter() {
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
                 </span>
                 <span className="text-xs text-red-400 uppercase tracking-wider font-bold">
-                  Status: High Risk
+                  Status: {releaseIntelligence.status}
                 </span>
               </div>
             </div>
@@ -583,14 +809,14 @@ export default function AICommandCenter() {
               {/* Release Version */}
               <div className="bg-[#151515] border border-gray-800 p-5 rounded-xl flex flex-col justify-center">
                 <span className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-2">Release Build</span>
-                <span className="text-3xl font-black text-white">4.6</span>
+                <span className="text-3xl font-black text-white">{releaseIntelligence.version}</span>
               </div>
 
               {/* Crash Increase */}
               <div className="bg-[#151515] border border-gray-800 p-5 rounded-xl flex flex-col justify-center">
                 <span className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-2">Crash Increase</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-3xl font-bold text-red-400">28%</span>
+                  <span className="text-3xl font-bold text-red-400">{releaseIntelligence.crashIncrease}</span>
                   <TrendingDown className="text-red-500" size={24} />
                 </div>
               </div>
@@ -599,7 +825,7 @@ export default function AICommandCenter() {
               <div className="bg-[#151515] border border-red-900/50 p-5 rounded-xl flex flex-col justify-center shadow-[0_0_15px_rgba(239,68,68,0.15)] transform hover:scale-105 transition-transform">
                 <span className="text-xs text-red-500/70 uppercase font-bold tracking-wider mb-2">Revenue Impact</span>
                 <span className="text-3xl font-black text-red-500 drop-shadow-[0_0_12px_rgba(239,68,68,0.5)]">
-                  $320k
+                  {releaseIntelligence.revenueImpact}
                 </span>
               </div>
 
@@ -609,7 +835,7 @@ export default function AICommandCenter() {
                   <CheckCircle size={14} /> AI Recommended
                 </span>
                 <button 
-                  onClick={() => handleAction('Rollback Release 4.6')} 
+                  onClick={() => handleAction(releaseIntelligence.aiAction)} 
                   className="w-full bg-white text-black font-bold py-3 rounded-lg hover:bg-gray-200 transition-colors shadow-[0_0_15px_rgba(255,255,255,0.1)] flex items-center justify-center gap-2"
                 >
                   <Activity size={18} /> Rollback
@@ -639,78 +865,35 @@ export default function AICommandCenter() {
               </div>
             </div>
 
-            {/* The Opportunities Ranked List */}
+            {/* The Opportunities Ranked List (Dynamic) */}
             <div className="space-y-4">
-              
-              {/* Rank 1: Offline Mode */}
-              <div className="group relative bg-[#151515] border border-gray-800 p-4 rounded-xl flex items-center justify-between overflow-hidden hover:border-green-500/50 transition-all cursor-pointer">
-                {/* Background Volume Indicator (Visualizes the 2134 value) */}
-                <div className="absolute left-0 top-0 bottom-0 bg-green-500/5 w-[90%] z-0 group-hover:bg-green-500/10 transition-colors"></div>
-                
-                <div className="relative z-10 flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-lg bg-[#222] text-gray-400 flex items-center justify-center font-bold font-mono group-hover:text-green-400 group-hover:bg-green-900/20 transition-all border border-gray-700">#1</div>
-                  <div>
-                    <div className="text-lg font-bold text-white group-hover:text-green-400 transition-colors">Offline Mode</div>
-                    <div className="text-xs text-gray-500 uppercase tracking-wider">Top Requested Feature</div>
+              {productOpportunities.map((opp) => {
+                const styles = getOpportunityStyles(opp.color);
+                return (
+                  <div key={opp.id} className={`group relative bg-[#151515] border border-gray-800 p-4 rounded-xl flex items-center justify-between overflow-hidden transition-all cursor-pointer ${styles.borderOuterHover}`}>
+                    
+                    {/* Dynamic Background Volume Indicator (React inline style for width) */}
+                    <div 
+                      className={`absolute left-0 top-0 bottom-0 z-0 transition-colors ${styles.bgBar}`} 
+                      style={{ width: `${opp.score}%` }}
+                    ></div>
+                    
+                    <div className="relative z-10 flex items-center gap-4">
+                      <div className={`h-10 w-10 rounded-lg bg-[#222] text-gray-400 flex items-center justify-center font-bold font-mono transition-all border border-gray-700 ${styles.textHover} ${styles.iconBg}`}>
+                        {opp.rank}
+                      </div>
+                      <div>
+                        <div className={`text-lg font-bold text-white transition-colors ${styles.textHover}`}>{opp.title}</div>
+                        <div className="text-xs text-gray-500 uppercase tracking-wider">{opp.subtitle}</div>
+                      </div>
+                    </div>
+                    <div className={`relative z-10 flex items-center gap-2 bg-[#111] px-4 py-2 rounded-lg border border-gray-800 ${styles.borderInnerHover}`}>
+                      <Users size={16} className={styles.iconText} />
+                      <span className={`text-xl font-bold ${styles.countText}`}>{opp.userCount}</span>
+                    </div>
                   </div>
-                </div>
-                <div className="relative z-10 flex items-center gap-2 bg-[#111] px-4 py-2 rounded-lg border border-gray-800 group-hover:border-green-500/30">
-                  <Users size={16} className="text-green-500" />
-                  <span className="text-xl font-bold text-green-400">2,134</span>
-                </div>
-              </div>
-
-              {/* Rank 2: Dark Theme */}
-              <div className="group relative bg-[#151515] border border-gray-800 p-4 rounded-xl flex items-center justify-between overflow-hidden hover:border-blue-500/50 transition-all cursor-pointer">
-                <div className="absolute left-0 top-0 bottom-0 bg-blue-500/5 w-[75%] z-0 group-hover:bg-blue-500/10 transition-colors"></div>
-                
-                <div className="relative z-10 flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-lg bg-[#222] text-gray-400 flex items-center justify-center font-bold font-mono group-hover:text-blue-400 group-hover:bg-blue-900/20 transition-all border border-gray-700">#2</div>
-                  <div>
-                    <div className="text-lg font-bold text-white group-hover:text-blue-400 transition-colors">Dark Theme</div>
-                    <div className="text-xs text-gray-500 uppercase tracking-wider">High Demand</div>
-                  </div>
-                </div>
-                <div className="relative z-10 flex items-center gap-2 bg-[#111] px-4 py-2 rounded-lg border border-gray-800 group-hover:border-blue-500/30">
-                  <Users size={16} className="text-blue-500" />
-                  <span className="text-xl font-bold text-blue-400">1,811</span>
-                </div>
-              </div>
-
-              {/* Rank 3: Export PDF */}
-              <div className="group relative bg-[#151515] border border-gray-800 p-4 rounded-xl flex items-center justify-between overflow-hidden hover:border-purple-500/50 transition-all cursor-pointer">
-                <div className="absolute left-0 top-0 bottom-0 bg-purple-500/5 w-[35%] z-0 group-hover:bg-purple-500/10 transition-colors"></div>
-                
-                <div className="relative z-10 flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-lg bg-[#222] text-gray-400 flex items-center justify-center font-bold font-mono group-hover:text-purple-400 group-hover:bg-purple-900/20 transition-all border border-gray-700">#3</div>
-                  <div>
-                    <div className="text-lg font-bold text-white group-hover:text-purple-400 transition-colors">Export PDF</div>
-                    <div className="text-xs text-gray-500 uppercase tracking-wider">Rising Trend</div>
-                  </div>
-                </div>
-                <div className="relative z-10 flex items-center gap-2 bg-[#111] px-4 py-2 rounded-lg border border-gray-800 group-hover:border-purple-500/30">
-                  <Users size={16} className="text-purple-500" />
-                  <span className="text-xl font-bold text-purple-400">812</span>
-                </div>
-              </div>
-
-              {/* Rank 4: API Access */}
-              <div className="group relative bg-[#151515] border border-gray-800 p-4 rounded-xl flex items-center justify-between overflow-hidden hover:border-orange-500/50 transition-all cursor-pointer">
-                <div className="absolute left-0 top-0 bottom-0 bg-orange-500/5 w-[30%] z-0 group-hover:bg-orange-500/10 transition-colors"></div>
-                
-                <div className="relative z-10 flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-lg bg-[#222] text-gray-400 flex items-center justify-center font-bold font-mono group-hover:text-orange-400 group-hover:bg-orange-900/20 transition-all border border-gray-700">#4</div>
-                  <div>
-                    <div className="text-lg font-bold text-white group-hover:text-orange-400 transition-colors">API Access</div>
-                    <div className="text-xs text-gray-500 uppercase tracking-wider">Developer Need</div>
-                  </div>
-                </div>
-                <div className="relative z-10 flex items-center gap-2 bg-[#111] px-4 py-2 rounded-lg border border-gray-800 group-hover:border-orange-500/30">
-                  <Users size={16} className="text-orange-500" />
-                  <span className="text-xl font-bold text-orange-400">721</span>
-                </div>
-              </div>
-
+                );
+              })}
             </div>
           </div>
           {/* 🚀 8. MEETING INTELLIGENCE (The Auto-Summary Engine) */}
@@ -721,7 +904,7 @@ export default function AICommandCenter() {
                 <h2 className="text-lg font-semibold text-gray-200 flex items-center gap-3">
                   <Activity size={20} className="text-blue-500" /> Meeting Intelligence
                 </h2>
-                <p className="text-sm text-gray-500 mt-1">Weekly All-Hands • Last Sync: 45 mins ago</p>
+                <p className="text-sm text-gray-500 mt-1">{meetingIntelligence.title} • Last Sync: {meetingIntelligence.lastSync}</p>
               </div>
               
               {/* The AI Pipeline Visualization */}
@@ -736,65 +919,25 @@ export default function AICommandCenter() {
               </div>
             </div>
 
-            {/* The Output Grid */}
+            {/* The Output Grid (Dynamic) */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              
-              {/* CEO Status */}
-              <div className="group bg-gradient-to-br from-[#151515] to-[#1a1205] border border-orange-900/30 hover:border-orange-500/50 p-5 rounded-xl transition-all cursor-pointer shadow-lg">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="text-gray-400 uppercase tracking-widest text-xs font-bold group-hover:text-gray-200 transition-colors">CEO</div>
-                  <div className="h-8 w-8 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500 group-hover:scale-110 transition-transform">
-                    <UserMinus size={16} />
+              {meetingIntelligence.participants.map((participant) => {
+                const styles = getMeetingStyles(participant.color, participant.pulse);
+                return (
+                  <div key={participant.id} className={`group bg-gradient-to-br from-[#151515] to-[#1a1205] border ${styles.card} p-5 rounded-xl transition-all cursor-pointer`}>
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="text-gray-400 uppercase tracking-widest text-xs font-bold group-hover:text-gray-200 transition-colors">{participant.role}</div>
+                      <div className={`h-8 w-8 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform ${styles.iconBg}`}>
+                        {styles.icon}
+                      </div>
+                    </div>
+                    <div className={`text-xl font-black mb-1 ${styles.textGlow}`}>
+                      {participant.status}
+                    </div>
+                    <div className="text-xs text-gray-500">{participant.context}</div>
                   </div>
-                </div>
-                <div className="text-xl font-black text-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.4)] mb-1">
-                  Concerned
-                </div>
-                <div className="text-xs text-gray-500">Regarding revenue risk</div>
-              </div>
-
-              {/* Product Status */}
-              <div className="group bg-gradient-to-br from-[#151515] to-[#1a1a05] border border-yellow-900/30 hover:border-yellow-500/50 p-5 rounded-xl transition-all cursor-pointer shadow-lg">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="text-gray-400 uppercase tracking-widest text-xs font-bold group-hover:text-gray-200 transition-colors">Product</div>
-                  <div className="h-8 w-8 rounded-full bg-yellow-500/10 flex items-center justify-center text-yellow-500 group-hover:scale-110 transition-transform">
-                    <Map size={16} />
-                  </div>
-                </div>
-                <div className="text-xl font-black text-yellow-500 drop-shadow-[0_0_8px_rgba(234,179,8,0.4)] mb-1">
-                  Delayed
-                </div>
-                <div className="text-xs text-gray-500">Release 4.7 pushed back</div>
-              </div>
-
-              {/* Engineering Status (Critical) */}
-              <div className="group bg-gradient-to-br from-[#151515] to-[#1a0505] border border-red-900/40 hover:border-red-500/50 p-5 rounded-xl transition-all cursor-pointer shadow-[0_0_15px_rgba(239,68,68,0.05)]">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="text-gray-400 uppercase tracking-widest text-xs font-bold group-hover:text-gray-200 transition-colors">Engineering</div>
-                  <div className="h-8 w-8 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform">
-                    <ShieldAlert size={16} />
-                  </div>
-                </div>
-                <div className="text-xl font-black text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.5)] mb-1 animate-pulse">
-                  Blocked
-                </div>
-                <div className="text-xs text-gray-500">Pending API resolution</div>
-              </div>
-
-              {/* Marketing Status */}
-              <div className="group bg-gradient-to-br from-[#151515] to-[#050a1a] border border-blue-900/30 hover:border-blue-500/50 p-5 rounded-xl transition-all cursor-pointer shadow-lg">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="text-gray-400 uppercase tracking-widest text-xs font-bold group-hover:text-gray-200 transition-colors">Marketing</div>
-                  <div className="h-8 w-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform">
-                    <Megaphone size={16} /> {/* Ensure you import Megaphone from lucide-react */}
-                  </div>
-                </div>
-                <div className="text-xl font-black text-blue-400 drop-shadow-[0_0_8px_rgba(59,130,246,0.4)] mb-1">
-                  Waiting
-                </div>
-                <div className="text-xs text-gray-500">Needs product sign-off</div>
-              </div>
-
+                );
+              })}
             </div>
           </div>
           {/* 🚀 9. ROOT CAUSE GRAPH (The Ultimate Traceability Pipeline) */}
@@ -803,97 +946,43 @@ export default function AICommandCenter() {
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-gray-200 flex items-center gap-3">
-                  <Network size={20} className="text-blue-500" /> Root Cause Graph
+                  <Network size={20} className="text-blue-500" /> {rootCauseGraph.title}
                 </h2>
                 <p className="text-sm text-gray-500 mt-1">End-to-end incident traceability. Click any node to deep dive.</p>
               </div>
               <div className="flex items-center gap-2 bg-[#1a1a1a] border border-gray-700 px-3 py-1.5 rounded-md">
                 <span className="text-xs text-gray-400 uppercase tracking-wider font-bold flex items-center gap-2">
-                  <GitCommit size={14} className="text-gray-500" /> Incident #823-Alpha
+                  <GitCommit size={14} className="text-gray-500" /> {rootCauseGraph.incidentId}
                 </span>
               </div>
             </div>
 
-            {/* The Interactive Graph Pipeline */}
+            {/* The Interactive Graph Pipeline (Dynamic) */}
             <div className="flex items-center gap-3 md:gap-4 overflow-x-auto pb-6 pt-4 custom-scrollbar px-2">
               
-              {/* 1. Customer */}
-              <div onClick={() => handleAction('View Customer Details')} className="flex-shrink-0 group flex flex-col items-center gap-3 cursor-pointer">
-                <div className="h-14 w-14 rounded-2xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 group-hover:scale-110 group-hover:bg-blue-500/20 group-hover:border-blue-400 transition-all shadow-[0_0_15px_rgba(59,130,246,0.1)] group-hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] relative z-10">
-                  <User size={24} />
-                </div>
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider group-hover:text-blue-400 transition-colors">Customer</span>
-              </div>
+              {rootCauseGraph.nodes.map((node, index) => {
+                const styles = getGraphNodeStyles(node.color);
+                const isLastNode = index === rootCauseGraph.nodes.length - 1;
 
-              <ArrowRight size={20} className="text-gray-700 flex-shrink-0" />
+                return (
+                  <React.Fragment key={node.id}>
+                    {/* The Node */}
+                    <div onClick={() => handleAction(node.action)} className="flex-shrink-0 group flex flex-col items-center gap-3 cursor-pointer">
+                      <div className={`h-14 w-14 rounded-2xl border flex items-center justify-center group-hover:scale-110 transition-all relative z-10 ${styles.wrapper}`}>
+                        {renderGraphIcon(node.icon)}
+                      </div>
+                      <span className={`text-xs font-bold uppercase tracking-wider transition-colors ${styles.text}`}>
+                        {node.type}
+                      </span>
+                    </div>
 
-              {/* 2. Ticket */}
-              <div onClick={() => handleAction('Open Zendesk Ticket')} className="flex-shrink-0 group flex flex-col items-center gap-3 cursor-pointer">
-                <div className="h-14 w-14 rounded-2xl bg-[#151515] border border-gray-700 flex items-center justify-center text-gray-400 group-hover:scale-110 group-hover:bg-gray-800 group-hover:border-gray-500 transition-all relative z-10">
-                  <Ticket size={24} />
-                </div>
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider group-hover:text-gray-300 transition-colors">Ticket</span>
-              </div>
-
-              <ArrowRight size={20} className="text-gray-700 flex-shrink-0" />
-
-              {/* 3. Slack */}
-              <div onClick={() => handleAction('View Slack Thread')} className="flex-shrink-0 group flex flex-col items-center gap-3 cursor-pointer">
-                <div className="h-14 w-14 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 group-hover:scale-110 group-hover:bg-purple-500/20 group-hover:border-purple-400 transition-all shadow-[0_0_15px_rgba(168,85,247,0.1)] group-hover:shadow-[0_0_20px_rgba(168,85,247,0.3)] relative z-10">
-                  <Hash size={24} />
-                </div>
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider group-hover:text-purple-400 transition-colors">Slack</span>
-              </div>
-
-              <ArrowRight size={20} className="text-gray-700 flex-shrink-0" />
-
-              {/* 4. Engineer */}
-              <div onClick={() => handleAction('View Engineer Profile')} className="flex-shrink-0 group flex flex-col items-center gap-3 cursor-pointer">
-                <div className="h-14 w-14 rounded-2xl bg-green-500/10 border border-green-500/30 flex items-center justify-center text-green-400 group-hover:scale-110 group-hover:bg-green-500/20 group-hover:border-green-400 transition-all shadow-[0_0_15px_rgba(34,197,94,0.1)] group-hover:shadow-[0_0_20px_rgba(34,197,94,0.3)] relative z-10">
-                  <TerminalSquare size={24} />
-                </div>
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider group-hover:text-green-400 transition-colors">Engineer</span>
-              </div>
-
-              <ArrowRight size={20} className="text-gray-700 flex-shrink-0" />
-
-              {/* 5. Commit */}
-              <div onClick={() => handleAction('View GitHub Commit')} className="flex-shrink-0 group flex flex-col items-center gap-3 cursor-pointer">
-                <div className="h-14 w-14 rounded-2xl bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center text-yellow-400 group-hover:scale-110 group-hover:bg-yellow-500/20 group-hover:border-yellow-400 transition-all shadow-[0_0_15px_rgba(234,179,8,0.1)] group-hover:shadow-[0_0_20px_rgba(234,179,8,0.3)] relative z-10">
-                  <GitCommit size={24} />
-                </div>
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider group-hover:text-yellow-400 transition-colors">Commit</span>
-              </div>
-
-              <ArrowRight size={20} className="text-gray-700 flex-shrink-0" />
-
-              {/* 6. Deployment */}
-              <div onClick={() => handleAction('View Vercel Deployment')} className="flex-shrink-0 group flex flex-col items-center gap-3 cursor-pointer">
-                <div className="h-14 w-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 group-hover:scale-110 group-hover:bg-indigo-500/20 group-hover:border-indigo-400 transition-all shadow-[0_0_15px_rgba(99,102,241,0.1)] group-hover:shadow-[0_0_20px_rgba(99,102,241,0.3)] relative z-10">
-                  <Rocket size={24} />
-                </div>
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider group-hover:text-indigo-400 transition-colors">Deployment</span>
-              </div>
-
-              <ArrowRight size={20} className="text-red-900/50 flex-shrink-0" />
-
-              {/* 7. Crash */}
-              <div onClick={() => handleAction('View Datadog Crash Logs')} className="flex-shrink-0 group flex flex-col items-center gap-3 cursor-pointer">
-                <div className="h-14 w-14 rounded-2xl bg-red-500/10 border border-red-500/50 flex items-center justify-center text-red-500 group-hover:scale-110 group-hover:bg-red-500/20 group-hover:border-red-400 transition-all shadow-[0_0_15px_rgba(239,68,68,0.2)] group-hover:shadow-[0_0_20px_rgba(239,68,68,0.5)] animate-pulse relative z-10">
-                  <ServerCrash size={24} />
-                </div>
-                <span className="text-xs font-bold text-red-500/70 uppercase tracking-wider group-hover:text-red-400 transition-colors">Crash</span>
-              </div>
-
-              <ArrowRight size={20} className="text-red-900/50 flex-shrink-0" />
-
-              {/* 8. Revenue (The Final Impact) */}
-              <div onClick={() => handleAction('View Revenue Impact')} className="flex-shrink-0 group flex flex-col items-center gap-3 cursor-pointer">
-                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-red-900/40 to-[#1a0505] border-2 border-red-500/50 flex items-center justify-center text-red-400 group-hover:scale-110 group-hover:border-red-400 transition-all shadow-[0_0_25px_rgba(239,68,68,0.3)] group-hover:shadow-[0_0_35px_rgba(239,68,68,0.6)] relative z-10">
-                  <DollarSign size={24} />
-                </div>
-                <span className="text-xs font-bold text-red-500 uppercase tracking-wider group-hover:text-red-400 transition-colors">Revenue</span>
-              </div>
+                    {/* The Connecting Arrow (unless it's the last node) */}
+                    {!isLastNode && (
+                      <ArrowRight size={20} className={`${node.arrowColor} flex-shrink-0`} />
+                    )}
+                  </React.Fragment>
+                );
+              })}
 
             </div>
 
@@ -924,43 +1013,43 @@ export default function AICommandCenter() {
 
             <div className="relative z-10">
               <h1 className="text-4xl md:text-5xl font-bold text-white mb-8 tracking-tight flex items-center gap-4">
-                Good Morning.
+                {aiInbox.greeting}
                 <span className="flex h-3 w-3 relative">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
                 </span>
               </h1>
 
-              {/* The "Read. Done." Content Flow */}
+              {/* The "Read. Done." Content Flow (Dynamic) */}
               <div className="space-y-6 text-2xl md:text-3xl font-medium text-gray-500 leading-relaxed max-w-4xl">
                 
                 <p className="flex flex-wrap items-center gap-x-3 gap-y-4">
                   Today 
-                  <span onClick={() => handleAction('View Churn Risk')} className="text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 px-4 py-1.5 rounded-xl cursor-pointer transition-all hover:scale-105 shadow-[0_0_15px_rgba(239,68,68,0.15)] flex items-center gap-2">
-                    <UserMinus size={24} /> 3 customers
+                  <span onClick={() => handleAction(aiInbox.churn.action)} className="text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 px-4 py-1.5 rounded-xl cursor-pointer transition-all hover:scale-105 shadow-[0_0_15px_rgba(239,68,68,0.15)] flex items-center gap-2">
+                    <UserMinus size={24} /> {aiInbox.churn.text}
                   </span> 
                   likely to churn.
                 </p>
                 
                 <p className="flex flex-wrap items-center gap-x-3 gap-y-4">
                   Fixing 
-                  <span onClick={() => handleAction('Open Jira Issue #823')} className="text-white bg-[#1a1a1a] hover:bg-[#222] border border-gray-700 px-4 py-1.5 rounded-xl cursor-pointer transition-all font-mono text-xl md:text-2xl hover:scale-105 flex items-center gap-2">
-                    <TerminalSquare size={20} className="text-gray-400"/> Issue #823
+                  <span onClick={() => handleAction(aiInbox.issue.action)} className="text-white bg-[#1a1a1a] hover:bg-[#222] border border-gray-700 px-4 py-1.5 rounded-xl cursor-pointer transition-all font-mono text-xl md:text-2xl hover:scale-105 flex items-center gap-2">
+                    <TerminalSquare size={20} className="text-gray-400"/> {aiInbox.issue.id}
                   </span> 
                   will save 
                   <span className="text-green-400 bg-green-500/10 border border-green-500/20 px-4 py-1.5 rounded-xl shadow-[0_0_15px_rgba(34,197,94,0.15)] font-bold">
-                    $420k
+                    {aiInbox.issue.saved}
                   </span>.
                 </p>
                 
                 <p className="flex flex-wrap items-center gap-x-3 gap-y-4">
                   Release 
                   <span className="text-white font-mono bg-[#1a1a1a] px-4 py-1.5 rounded-xl text-xl md:text-2xl border border-gray-700">
-                    4.7
+                    {aiInbox.release.version}
                   </span> 
                   has 
-                  <span onClick={() => handleAction('View Release Failure Risk')} className="text-orange-400 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/20 px-4 py-1.5 rounded-xl cursor-pointer transition-all hover:scale-105 shadow-[0_0_15px_rgba(249,115,22,0.15)] flex items-center gap-2">
-                    <AlertTriangle size={24} /> 81% failure risk
+                  <span onClick={() => handleAction(aiInbox.release.action)} className="text-orange-400 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/20 px-4 py-1.5 rounded-xl cursor-pointer transition-all hover:scale-105 shadow-[0_0_15px_rgba(249,115,22,0.15)] flex items-center gap-2">
+                    <AlertTriangle size={24} /> {aiInbox.release.risk}
                   </span>.
                 </p>
 
@@ -1000,26 +1089,25 @@ export default function AICommandCenter() {
               {/* Active Toggle Switch (Top Right) */}
               <div className="absolute top-6 right-6 md:top-8 md:right-8 flex items-center gap-3">
                 <span className="text-xs text-gray-500 uppercase tracking-widest font-bold hidden md:block">Rule Status</span>
-                <div className="w-12 h-6 bg-green-500/20 rounded-full border border-green-500/40 flex items-center p-1 cursor-pointer transition-colors hover:bg-green-500/30">
-                  <div className="w-4 h-4 bg-green-500 rounded-full ml-auto shadow-[0_0_10px_rgba(34,197,94,0.8)]"></div>
+                <div onClick={() => handleAction('Toggle Automation Rule')} className={`w-12 h-6 rounded-full border flex items-center p-1 cursor-pointer transition-colors ${automationCenter.status === 'active' ? 'bg-green-500/20 border-green-500/40 hover:bg-green-500/30' : 'bg-gray-800 border-gray-600'}`}>
+                  <div className={`w-4 h-4 rounded-full transition-all ${automationCenter.status === 'active' ? 'bg-green-500 ml-auto shadow-[0_0_10px_rgba(34,197,94,0.8)]' : 'bg-gray-500'}`}></div>
                 </div>
               </div>
 
-              {/* Step 1: The IF Condition */}
+              {/* Step 1: The IF Condition (Dynamic) */}
               <div className="flex flex-col items-start gap-4 z-10 relative">
                 <div className="flex flex-col md:flex-row md:items-center gap-3 w-full">
                   <div className="bg-gray-800 text-gray-300 font-bold px-4 py-3 rounded-xl tracking-widest text-sm w-20 text-center">IF</div>
                   
-                  {/* Logic Pills Container */}
                   <div className="flex-1 flex flex-wrap items-center gap-2 md:gap-3 bg-[#151515] border border-gray-700 p-3 rounded-xl shadow-lg w-full max-w-2xl">
                     <span className="bg-orange-500/10 border border-orange-500/30 text-orange-400 px-4 py-2 rounded-lg font-semibold flex items-center gap-2 cursor-pointer hover:bg-orange-500/20 transition-colors">
-                      <AlertTriangle size={16}/> Revenue Risk
+                      <AlertTriangle size={16}/> {automationCenter.ifCondition.metric}
                     </span>
                     <span className="bg-[#222] text-gray-300 px-4 py-2 rounded-lg font-black font-mono shadow-inner">
-                      &gt;
+                      {automationCenter.ifCondition.operator}
                     </span>
                     <span className="bg-green-500/10 border border-green-500/30 text-green-400 px-4 py-2 rounded-lg font-bold font-mono cursor-pointer hover:bg-green-500/20 transition-colors shadow-[0_0_10px_rgba(34,197,94,0.1)]">
-                      $50k
+                      {automationCenter.ifCondition.value}
                     </span>
                   </div>
                 </div>
@@ -1031,45 +1119,37 @@ export default function AICommandCenter() {
                 <ArrowDown className="text-blue-500 animate-bounce" size={24} />
               </div>
 
-              {/* Step 2: The THEN Actions Pipeline */}
+              {/* Step 2: The THEN Actions Pipeline (Dynamic) */}
               <div className="flex items-start gap-3 w-full relative z-10">
                 <div className="bg-blue-600 text-white font-bold px-4 py-3 rounded-xl tracking-widest text-sm w-20 text-center shadow-[0_0_15px_rgba(37,99,235,0.4)]">THEN</div>
                 
                 <div className="flex-1 flex flex-col gap-3 w-full max-w-2xl">
                   
-                  {/* Action 1 */}
-                  <div className="group bg-[#151515] border border-gray-700 hover:border-blue-500/50 p-4 rounded-xl flex items-center gap-4 transition-all cursor-pointer shadow-sm hover:shadow-[0_0_15px_rgba(59,130,246,0.15)] relative">
-                    <div className="h-10 w-10 bg-blue-500/10 rounded-lg flex items-center justify-center text-blue-400"><Ticket size={20}/></div>
-                    <span className="text-lg font-semibold text-gray-200 group-hover:text-blue-400 transition-colors">Create Jira</span>
-                  </div>
-                  
-                  <div className="pl-6 py-1"><ArrowDown className="text-gray-700" size={16} /></div>
+                  {automationCenter.thenActions.map((action, index) => {
+                    const styles = getAutomationStyles(action.color, action.pulse);
+                    const isLast = index === automationCenter.thenActions.length - 1;
 
-                  {/* Action 2 */}
-                  <div className="group bg-[#151515] border border-gray-700 hover:border-purple-500/50 p-4 rounded-xl flex items-center gap-4 transition-all cursor-pointer shadow-sm hover:shadow-[0_0_15px_rgba(168,85,247,0.15)] relative">
-                    <div className="h-10 w-10 bg-purple-500/10 rounded-lg flex items-center justify-center text-purple-400"><Hash size={20}/></div>
-                    <span className="text-lg font-semibold text-gray-200 group-hover:text-purple-400 transition-colors">Notify Slack</span>
-                  </div>
-
-                  <div className="pl-6 py-1"><ArrowDown className="text-gray-700" size={16} /></div>
-
-                  {/* Action 3 */}
-                  <div className="group bg-[#151515] border border-gray-700 hover:border-green-500/50 p-4 rounded-xl flex items-center gap-4 transition-all cursor-pointer shadow-sm hover:shadow-[0_0_15px_rgba(34,197,94,0.15)] relative">
-                    <div className="h-10 w-10 bg-green-500/10 rounded-lg flex items-center justify-center text-green-400"><UserCheck size={20}/></div>
-                    <span className="text-lg font-semibold text-gray-200 group-hover:text-green-400 transition-colors">Assign Eng Manager</span>
-                  </div>
-
-                  <div className="pl-6 py-1"><ArrowDown className="text-gray-700" size={16} /></div>
-
-                  {/* Action 4 (Critical Conclusion) */}
-                  <div className="group bg-gradient-to-r from-[#1a0505] to-[#151515] border border-red-900/40 hover:border-red-500/50 p-4 rounded-xl flex items-center gap-4 transition-all cursor-pointer shadow-sm hover:shadow-[0_0_15px_rgba(239,68,68,0.2)] relative">
-                    <div className="h-10 w-10 bg-red-500/10 rounded-lg flex items-center justify-center text-red-500 animate-pulse"><AlertOctagon size={20}/></div>
-                    <span className="text-lg font-bold text-red-400 group-hover:text-red-300 transition-colors">Open Incident</span>
-                  </div>
+                    return (
+                      <React.Fragment key={action.id}>
+                        <div onClick={() => handleAction(action.title)} className={`group border p-4 rounded-xl flex items-center gap-4 transition-all cursor-pointer shadow-sm relative ${styles.wrapper}`}>
+                          <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${styles.iconBg}`}>
+                            {renderAutomationIcon(action.icon)}
+                          </div>
+                          <span className={`text-lg transition-colors ${styles.text}`}>
+                            {action.title}
+                          </span>
+                        </div>
+                        
+                        {!isLast && (
+                          <div className="pl-6 py-1"><ArrowDown className="text-gray-700" size={16} /></div>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
 
                   {/* Add New Action Button */}
                   <div className="mt-4">
-                    <button className="flex items-center gap-2 text-gray-500 hover:text-white bg-[#111] hover:bg-[#1a1a1a] border border-dashed border-gray-700 hover:border-gray-500 px-5 py-3 rounded-xl transition-colors font-semibold text-sm w-full md:w-auto justify-center">
+                    <button onClick={() => handleAction('Add Action Node')} className="flex items-center gap-2 text-gray-500 hover:text-white bg-[#111] hover:bg-[#1a1a1a] border border-dashed border-gray-700 hover:border-gray-500 px-5 py-3 rounded-xl transition-colors font-semibold text-sm w-full md:w-auto justify-center">
                       <Plus size={18} /> Add Action
                     </button>
                   </div>
@@ -1084,7 +1164,6 @@ export default function AICommandCenter() {
             
             {/* The Dynamic Header & Role Selector */}
             <div className="bg-[#0a0a0a] border-b border-gray-800 p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-              
               <div>
                 <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Workspace Intelligence</h1>
                 <p className="text-gray-500 text-sm font-medium">Unified AI Graph • Rendering customized insights</p>
@@ -1121,42 +1200,18 @@ export default function AICommandCenter() {
                   ========================================= */}
               {activeTab === 'ceo' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
-                  
-                  <div className="bg-[#111] border border-green-900/30 p-6 rounded-xl group hover:border-green-500/50 transition-all shadow-lg">
-                    <div className="text-gray-400 uppercase tracking-widest text-xs font-bold mb-4 flex justify-between">Revenue <DollarSign size={14} className="text-green-500"/></div>
-                    <div className="text-4xl font-black text-green-400 drop-shadow-[0_0_10px_rgba(34,197,94,0.4)]">$14.2M</div>
-                    <div className="text-sm text-gray-500 mt-2 font-medium">+12% MRR Growth</div>
-                  </div>
-
-                  <div className="bg-[#111] border border-red-900/30 p-6 rounded-xl group hover:border-red-500/50 transition-all shadow-lg">
-                    <div className="text-gray-400 uppercase tracking-widest text-xs font-bold mb-4 flex justify-between">Total Risk <AlertTriangle size={14} className="text-red-500"/></div>
-                    <div className="text-4xl font-black text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.4)]">$840k</div>
-                    <div className="text-sm text-gray-500 mt-2 font-medium">3 Critical Bugs • 4 Churn Risks</div>
-                  </div>
-
-                  <div className="bg-[#111] border border-blue-900/30 p-6 rounded-xl group hover:border-blue-500/50 transition-all shadow-lg">
-                    <div className="text-gray-400 uppercase tracking-widest text-xs font-bold mb-4 flex justify-between">Growth Target <TrendingUp size={14} className="text-blue-500"/></div>
-                    <div className="text-4xl font-black text-white">108%</div>
-                    <div className="text-sm text-blue-400 mt-2 font-medium">On track for Q3 goals</div>
-                  </div>
-
-                  <div className="bg-[#111] border border-pink-900/30 p-6 rounded-xl group hover:border-pink-500/50 transition-all shadow-lg">
-                    <div className="text-gray-400 uppercase tracking-widest text-xs font-bold mb-4 flex justify-between">Customer Happiness <Smile size={14} className="text-pink-500"/></div>
-                    <div className="text-4xl font-black text-pink-400 drop-shadow-[0_0_10px_rgba(236,72,153,0.4)]">92/100</div>
-                    <div className="text-sm text-gray-500 mt-2 font-medium">CSAT up by 4 pts this week</div>
-                  </div>
-
-                  <div className="bg-[#111] border border-orange-900/30 p-6 rounded-xl group hover:border-orange-500/50 transition-all shadow-lg">
-                    <div className="text-gray-400 uppercase tracking-widest text-xs font-bold mb-4 flex justify-between">Eng Velocity <Activity size={14} className="text-orange-500"/></div>
-                    <div className="text-4xl font-black text-orange-400">142 pts</div>
-                    <div className="text-sm text-gray-500 mt-2 font-medium">Sprint completion rate: 94%</div>
-                  </div>
-
-                  <div className="bg-gradient-to-br from-[#111] to-purple-900/10 border border-purple-500/30 p-6 rounded-xl group hover:border-purple-500/60 transition-all shadow-[0_0_20px_rgba(168,85,247,0.1)]">
-                    <div className="text-gray-400 uppercase tracking-widest text-xs font-bold mb-4 flex justify-between">AI Decisions Made <Cpu size={14} className="text-purple-500 animate-pulse"/></div>
-                    <div className="text-4xl font-black text-purple-400 drop-shadow-[0_0_10px_rgba(168,85,247,0.5)]">1,842</div>
-                    <div className="text-sm text-purple-300 mt-2 font-medium">Auto-resolved 41% of tickets</div>
-                  </div>
+                  {roleBasedData.ceoMetrics.map((metric) => {
+                    const styles = getCeoStyles(metric.color);
+                    return (
+                      <div key={metric.id} className={`bg-[#111] border p-6 rounded-xl group transition-all shadow-lg ${styles.border}`}>
+                        <div className="text-gray-400 uppercase tracking-widest text-xs font-bold mb-4 flex justify-between">
+                          {metric.label} {styles.icon}
+                        </div>
+                        <div className={`text-4xl font-black ${styles.valueText}`}>{metric.value}</div>
+                        <div className={`text-sm mt-2 font-medium ${styles.subText || 'text-gray-500'}`}>{metric.subtext}</div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
@@ -1174,31 +1229,30 @@ export default function AICommandCenter() {
                     <div className="col-span-1 text-right">ETA</div>
                   </div>
 
-                  {/* Bug Row 1 */}
-                  <div className="grid grid-cols-12 gap-4 items-center bg-[#111] border border-red-900/30 hover:border-red-500/50 p-4 rounded-xl cursor-pointer transition-colors group">
-                    <div className="col-span-3 flex flex-col">
-                      <span className="font-bold text-gray-200 group-hover:text-red-400 transition-colors">Stripe Webhook 500</span>
-                      <span className="text-xs text-red-500 font-mono">ERR_PAYMENT_FAIL</span>
-                    </div>
-                    <div className="col-span-2 flex items-center justify-center gap-2 font-medium text-gray-300"><Users size={14} className="text-gray-500"/> 214</div>
-                    <div className="col-span-2 flex items-center justify-center gap-1 font-bold text-red-400 bg-red-500/10 py-1 rounded"><DollarSign size={14}/> $420k</div>
-                    <div className="col-span-2 flex items-center gap-2 font-mono text-xs text-gray-400 bg-[#151515] px-2 py-1 rounded border border-gray-700"><GitBranch size={12}/> PR #892</div>
-                    <div className="col-span-2 flex items-center gap-2 font-medium text-blue-400"><div className="h-6 w-6 rounded-full bg-blue-500/20 flex items-center justify-center text-xs">RJ</div> Rahul J.</div>
-                    <div className="col-span-1 text-right font-mono text-sm text-orange-400">2 hrs</div>
-                  </div>
-
-                  {/* Bug Row 2 */}
-                  <div className="grid grid-cols-12 gap-4 items-center bg-[#111] border border-orange-900/30 hover:border-orange-500/50 p-4 rounded-xl cursor-pointer transition-colors group">
-                    <div className="col-span-3 flex flex-col">
-                      <span className="font-bold text-gray-200 group-hover:text-orange-400 transition-colors">Video Upload Timeout</span>
-                      <span className="text-xs text-orange-500 font-mono">S3_GATEWAY_TIMEOUT</span>
-                    </div>
-                    <div className="col-span-2 flex items-center justify-center gap-2 font-medium text-gray-300"><Users size={14} className="text-gray-500"/> 93</div>
-                    <div className="col-span-2 flex items-center justify-center gap-1 font-bold text-orange-400 bg-orange-500/10 py-1 rounded"><DollarSign size={14}/> $110k</div>
-                    <div className="col-span-2 flex items-center gap-2 font-mono text-xs text-gray-400 bg-[#151515] px-2 py-1 rounded border border-gray-700"><GitBranch size={12}/> Env Var Missing</div>
-                    <div className="col-span-2 flex items-center gap-2 font-medium text-blue-400"><div className="h-6 w-6 rounded-full bg-blue-500/20 flex items-center justify-center text-xs">SK</div> Satyam K.</div>
-                    <div className="col-span-1 text-right font-mono text-sm text-green-400">15 min</div>
-                  </div>
+                  {roleBasedData.engBugs.map((bug) => {
+                    const styles = getEngStyles(bug.color);
+                    return (
+                      <div key={bug.id} onClick={() => handleAction(`View Bug: ${bug.title}`)} className={`grid grid-cols-12 gap-4 items-center bg-[#111] border p-4 rounded-xl cursor-pointer transition-colors group ${styles.row}`}>
+                        <div className="col-span-3 flex flex-col">
+                          <span className={`font-bold text-gray-200 transition-colors ${styles.titleHover}`}>{bug.title}</span>
+                          <span className={`text-xs font-mono ${styles.codeText}`}>{bug.errorCode}</span>
+                        </div>
+                        <div className="col-span-2 flex items-center justify-center gap-2 font-medium text-gray-300">
+                          <Users size={14} className="text-gray-500"/> {bug.affected}
+                        </div>
+                        <div className={`col-span-2 flex items-center justify-center gap-1 font-bold py-1 rounded ${styles.revBox}`}>
+                          <DollarSign size={14}/> {bug.revImpact}
+                        </div>
+                        <div className="col-span-2 flex items-center gap-2 font-mono text-xs text-gray-400 bg-[#151515] px-2 py-1 rounded border border-gray-700">
+                          <GitBranch size={12}/> {bug.rootCause}
+                        </div>
+                        <div className="col-span-2 flex items-center gap-2 font-medium text-blue-400">
+                          <div className="h-6 w-6 rounded-full bg-blue-500/20 flex items-center justify-center text-xs">{bug.assigneeInitials}</div> {bug.assigneeName}
+                        </div>
+                        <div className={`col-span-1 text-right font-mono text-sm ${styles.etaText}`}>{bug.eta}</div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
@@ -1215,37 +1269,35 @@ export default function AICommandCenter() {
                     <div className="col-span-2 text-right">AI Score</div>
                   </div>
 
-                  {/* Feature Row 1 */}
-                  <div className="grid grid-cols-12 gap-4 items-center bg-[#111] border border-blue-900/30 hover:border-blue-500/50 p-4 rounded-xl cursor-pointer transition-colors group">
-                    <div className="col-span-4 flex flex-col">
-                      <span className="font-bold text-gray-200 group-hover:text-blue-400 transition-colors text-lg">Offline Mode</span>
-                      <span className="text-xs text-gray-500">Requested by 2,134 users</span>
-                    </div>
-                    <div className="col-span-2 flex justify-center"><span className="bg-red-500/10 text-red-400 border border-red-500/20 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">P0 - Critical</span></div>
-                    <div className="col-span-2 flex justify-center text-gray-300 font-mono text-sm">3 Sprints</div>
-                    <div className="col-span-2 flex items-center justify-center font-bold text-green-400"><DollarSign size={14}/> $1.2M</div>
-                    <div className="col-span-2 flex justify-end">
-                      <div className="relative h-10 w-10 flex items-center justify-center rounded-full bg-[#151515] border border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.3)] group-hover:shadow-[0_0_25px_rgba(59,130,246,0.6)] transition-all">
-                        <span className="font-bold text-blue-400 text-sm">99</span>
-                      </div>
-                    </div>
-                  </div>
+                  {roleBasedData.pmFeatures.map((feature) => {
+                    // Quick inline styling for PM rows based on colors passed from backend
+                    const priorityStyles = feature.priorityColor === 'red' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20';
+                    const scoreBorder = feature.scoreColor === 'blue' ? 'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.3)] group-hover:shadow-[0_0_25px_rgba(59,130,246,0.6)]' : 'border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)] group-hover:shadow-[0_0_25px_rgba(168,85,247,0.6)]';
+                    const scoreText = feature.scoreColor === 'blue' ? 'text-blue-400' : 'text-purple-400';
+                    const hoverTitle = feature.scoreColor === 'blue' ? 'group-hover:text-blue-400' : 'group-hover:text-purple-400';
+                    const hoverBorder = feature.scoreColor === 'blue' ? 'hover:border-blue-500/50' : 'hover:border-purple-500/50';
 
-                  {/* Feature Row 2 */}
-                  <div className="grid grid-cols-12 gap-4 items-center bg-[#111] border border-gray-800 hover:border-purple-500/50 p-4 rounded-xl cursor-pointer transition-colors group">
-                    <div className="col-span-4 flex flex-col">
-                      <span className="font-bold text-gray-200 group-hover:text-purple-400 transition-colors text-lg">Export to PDF</span>
-                      <span className="text-xs text-gray-500">Enterprise tier blocker (Notion, Stripe)</span>
-                    </div>
-                    <div className="col-span-2 flex justify-center"><span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">P1 - High</span></div>
-                    <div className="col-span-2 flex justify-center text-gray-300 font-mono text-sm">1 Sprint</div>
-                    <div className="col-span-2 flex items-center justify-center font-bold text-green-400"><DollarSign size={14}/> $380k</div>
-                    <div className="col-span-2 flex justify-end">
-                      <div className="relative h-10 w-10 flex items-center justify-center rounded-full bg-[#151515] border border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)] transition-all">
-                        <span className="font-bold text-purple-400 text-sm">84</span>
+                    return (
+                      <div key={feature.id} onClick={() => handleAction(`View Feature: ${feature.title}`)} className={`grid grid-cols-12 gap-4 items-center bg-[#111] border border-gray-800 p-4 rounded-xl cursor-pointer transition-colors group ${hoverBorder}`}>
+                        <div className="col-span-4 flex flex-col">
+                          <span className={`font-bold text-gray-200 transition-colors text-lg ${hoverTitle}`}>{feature.title}</span>
+                          <span className="text-xs text-gray-500">{feature.description}</span>
+                        </div>
+                        <div className="col-span-2 flex justify-center">
+                          <span className={`border px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${priorityStyles}`}>
+                            {feature.priority}
+                          </span>
+                        </div>
+                        <div className="col-span-2 flex justify-center text-gray-300 font-mono text-sm">{feature.effort}</div>
+                        <div className="col-span-2 flex items-center justify-center font-bold text-green-400"><DollarSign size={14}/> {feature.revUnlock}</div>
+                        <div className="col-span-2 flex justify-end">
+                          <div className={`relative h-10 w-10 flex items-center justify-center rounded-full bg-[#151515] border transition-all ${scoreBorder}`}>
+                            <span className={`font-bold text-sm ${scoreText}`}>{feature.aiScore}</span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    );
+                  })}
                 </div>
               )}
 
@@ -1267,33 +1319,29 @@ export default function AICommandCenter() {
               <p className="text-gray-500 font-medium">Cross-platform correlation engine.</p>
             </div>
 
-            {/* The CEO Prompt */}
+            {/* The Prompt */}
             <div className="flex justify-center mb-10 relative z-10">
               <div className="bg-[#111] border border-blue-500/50 shadow-[0_0_30px_rgba(59,130,246,0.15)] px-8 py-4 rounded-full text-xl md:text-2xl font-semibold text-gray-200 flex items-center gap-4">
-                <span className="text-blue-500">CEO asks:</span> 
-                "Why are customers unhappy?"
+                <span className="text-blue-500">{aiCompanyBrain.asker} asks:</span> 
+                "{aiCompanyBrain.prompt}"
               </div>
             </div>
 
-            {/* The Correlation Pipeline (The Math) */}
+            {/* The Correlation Pipeline (Dynamic mapping) */}
             <div className="flex flex-col items-center mb-12 relative z-10 w-full max-w-5xl mx-auto">
               
               <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4 w-full">
-                <div className="flex items-center gap-2 bg-[#151515] border border-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold text-gray-300 shadow-lg"><MessageSquare size={16} className="text-[#E01E5A]"/> Slack</div>
-                <span className="text-gray-600 font-black">+</span>
-                <div className="flex items-center gap-2 bg-[#151515] border border-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold text-gray-300 shadow-lg"><GitBranch size={16} className="text-white"/> GitHub</div>
-                <span className="text-gray-600 font-black">+</span>
-                <div className="flex items-center gap-2 bg-[#151515] border border-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold text-gray-300 shadow-lg"><Users size={16} className="text-blue-400"/> CRM</div>
-                <span className="text-gray-600 font-black">+</span>
-                <div className="flex items-center gap-2 bg-[#151515] border border-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold text-gray-300 shadow-lg"><Video size={16} className="text-blue-500"/> Zoom</div>
-                <span className="text-gray-600 font-black">+</span>
-                <div className="flex items-center gap-2 bg-[#151515] border border-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold text-gray-300 shadow-lg"><PhoneCall size={16} className="text-green-500"/> Sales Calls</div>
-                <span className="text-gray-600 font-black">+</span>
-                <div className="flex items-center gap-2 bg-[#151515] border border-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold text-gray-300 shadow-lg"><Star size={16} className="text-yellow-400"/> Reviews</div>
-                <span className="text-gray-600 font-black">+</span>
-                <div className="flex items-center gap-2 bg-[#151515] border border-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold text-gray-300 shadow-lg"><ServerCrash size={16} className="text-red-500"/> Crash Logs</div>
-                <span className="text-gray-600 font-black">+</span>
-                <div className="flex items-center gap-2 bg-[#151515] border border-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold text-gray-300 shadow-lg"><BarChart size={16} className="text-orange-500"/> Analytics</div>
+                {aiCompanyBrain.dataSources.map((source, index) => {
+                  const isLast = index === aiCompanyBrain.dataSources.length - 1;
+                  return (
+                    <React.Fragment key={source.id}>
+                      <div className="flex items-center gap-2 bg-[#151515] border border-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold text-gray-300 shadow-lg">
+                        {renderDynamicIcon(source.icon, source.color)} {source.name}
+                      </div>
+                      {!isLast && <span className="text-gray-600 font-black">+</span>}
+                    </React.Fragment>
+                  );
+                })}
               </div>
 
               {/* Downward Flow */}
@@ -1307,7 +1355,7 @@ export default function AICommandCenter() {
               </div>
             </div>
 
-            {/* The Final Answer Box (The Masterpiece) */}
+            {/* The Final Answer Box */}
             <div className="relative z-10 max-w-4xl mx-auto bg-gradient-to-br from-[#111] to-[#150a0a] border border-red-900/40 rounded-2xl p-8 shadow-[0_0_40px_rgba(239,68,68,0.1)]">
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -1316,12 +1364,12 @@ export default function AICommandCenter() {
                 <div className="lg:col-span-2 space-y-6">
                   <div>
                     <div className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-2"><Activity size={14}/> Root Cause</div>
-                    <div className="text-2xl font-bold text-white">Video Upload Latency</div>
+                    <div className="text-2xl font-bold text-white">{aiCompanyBrain.resolution.rootCause}</div>
                   </div>
                   <div>
                     <div className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-2"><Users size={14}/> Affected</div>
                     <div className="text-xl font-semibold text-orange-400 bg-orange-500/10 inline-block px-3 py-1 rounded-lg border border-orange-500/20">
-                      Premium Customers
+                      {aiCompanyBrain.resolution.affected}
                     </div>
                   </div>
                 </div>
@@ -1330,12 +1378,12 @@ export default function AICommandCenter() {
                 <div className="space-y-6">
                   <div>
                     <div className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-2"><Clock size={14}/> Started</div>
-                    <div className="text-xl font-medium text-gray-300">Tuesday, 11:42 AM</div>
+                    <div className="text-xl font-medium text-gray-300">{aiCompanyBrain.resolution.started}</div>
                   </div>
                   <div>
                     <div className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-2"><GitBranch size={14}/> Reason</div>
                     <div className="text-xl font-mono font-medium text-gray-300 bg-[#1a1a1a] inline-block px-3 py-1 rounded-lg border border-gray-700">
-                      Deployment 4.8
+                      {aiCompanyBrain.resolution.reason}
                     </div>
                   </div>
                 </div>
@@ -1345,12 +1393,12 @@ export default function AICommandCenter() {
                   <div>
                     <div className="text-red-500/70 text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-2">Revenue At Risk</div>
                     <div className="text-4xl font-black text-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.5)] animate-pulse">
-                      $1.8M
+                      {aiCompanyBrain.resolution.revenueRisk}
                     </div>
                   </div>
                   <div>
                     <div className="text-green-500/70 text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-2"><RefreshCcw size={14}/> Est. Recovery</div>
-                    <div className="text-xl font-bold text-green-400">18 hours</div>
+                    <div className="text-xl font-bold text-green-400">{aiCompanyBrain.resolution.recoveryTime}</div>
                   </div>
                 </div>
 
@@ -1359,10 +1407,13 @@ export default function AICommandCenter() {
               {/* The Execution Button */}
               <div className="mt-10 pt-8 border-t border-gray-800 flex flex-col md:flex-row items-center justify-between gap-6">
                 <div className="text-sm font-medium text-gray-400">
-                  AI Confidence: <span className="text-white font-bold">98%</span> • All 8 data sources verified.
+                  AI Confidence: <span className="text-white font-bold">{aiCompanyBrain.resolution.confidence}</span> • All {aiCompanyBrain.resolution.sourcesVerified} data sources verified.
                 </div>
-                <button className="w-full md:w-auto bg-white text-black text-lg font-bold px-10 py-4 rounded-xl flex items-center justify-center gap-3 hover:bg-gray-200 hover:scale-105 transition-all shadow-[0_0_25px_rgba(255,255,255,0.2)]">
-                  <GitBranch size={20} /> Execute Rollback Now
+                <button 
+                  onClick={() => handleAction(aiCompanyBrain.resolution.actionText)} 
+                  className="w-full md:w-auto bg-white text-black text-lg font-bold px-10 py-4 rounded-xl flex items-center justify-center gap-3 hover:bg-gray-200 hover:scale-105 transition-all shadow-[0_0_25px_rgba(255,255,255,0.2)]"
+                >
+                  <GitBranch size={20} /> {aiCompanyBrain.resolution.actionText}
                 </button>
               </div>
 
@@ -1370,42 +1421,34 @@ export default function AICommandCenter() {
           </div>
 
 
-            {/* AI Timeline Component */}
-            <div className="bg-[#111] border border-gray-800 rounded-xl p-6">
-              <h2 className="text-lg font-semibold text-gray-200 mb-6 flex items-center gap-2">
-                <Clock size={18} className="text-purple-500" /> AI Correlation Timeline
-              </h2>
-              <div className="space-y-5 relative before:absolute before:inset-0 before:ml-4 before:-translate-x-px before:h-full before:w-0.5 before:bg-gray-800">
-                
-                <div className="relative flex items-center justify-between group">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full border-4 border-[#111] bg-gray-800 text-gray-400 z-10"><MessageSquare size={12} /></div>
-                  <div className="w-[calc(100%-3rem)] p-3 rounded-lg border border-gray-800 bg-[#151515]">
-                    <div className="flex justify-between mb-1"><div className="font-semibold text-sm text-gray-300">Slack complaints increased</div><time className="font-mono text-xs text-gray-500">10:42 AM</time></div>
+          {/* 🚀 AI Timeline Component (Now Dynamic) */}
+          <div className="bg-[#111] border border-gray-800 rounded-xl p-6">
+            <h2 className="text-lg font-semibold text-gray-200 mb-6 flex items-center gap-2">
+              <Clock size={18} className="text-purple-500" /> AI Correlation Timeline
+            </h2>
+            <div className="space-y-5 relative before:absolute before:inset-0 before:ml-4 before:-translate-x-px before:h-full before:w-0.5 before:bg-gray-800">
+              
+              {aiTimeline.map((event) => {
+                const styles = getTimelineStyles(event.color);
+                return (
+                  <div key={event.id} className="relative flex items-center justify-between group">
+                    <div className={`flex items-center justify-center w-8 h-8 rounded-full border-4 ${styles.iconWrapper} z-10`}>
+                      {renderDynamicIcon(event.icon, "", 12)}
+                    </div>
+                    <div className={`w-[calc(100%-3rem)] p-3 rounded-lg border ${styles.box}`}>
+                      <div className="flex justify-between mb-1">
+                        <div className={`font-semibold text-sm ${styles.text}`}>{event.text}</div>
+                        <time className="font-mono text-xs text-gray-500">{event.time}</time>
+                      </div>
+                    </div>
                   </div>
-                </div>
-
-                <div className="relative flex items-center justify-between group">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full border-4 border-[#111] bg-red-900/50 text-red-400 z-10"><AlertTriangle size={12} /></div>
-                  <div className="w-[calc(100%-3rem)] p-3 rounded-lg border border-red-900/30 bg-[#151515]">
-                    <div className="flex justify-between mb-1"><div className="font-semibold text-sm text-red-400">Crash spike detected</div><time className="font-mono text-xs text-gray-500">11:20 AM</time></div>
-                  </div>
-                </div>
-
-                <div className="relative flex items-center justify-between group">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full border-4 border-[#111] bg-blue-900/50 text-blue-400 z-10"><CheckCircle size={12} /></div>
-                  <div className="w-[calc(100%-3rem)] p-3 rounded-lg border border-blue-900/30 bg-[#151515]">
-                    <div className="flex justify-between mb-1"><div className="font-semibold text-sm text-blue-400">AI created Jira #823</div><time className="font-mono text-xs text-gray-500">12:14 PM</time></div>
-                  </div>
-                </div>
-                
-
-              </div>
+                );
+              })}
             </div>
-
           </div>
-
         </div>
       </div>
     </div>
+  </div>
   );
 }
