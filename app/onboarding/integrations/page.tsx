@@ -35,6 +35,7 @@ function IntegrationsContent() {
 
 
 
+   
     const oauthToolMap: Record<string, string> = {
       'jira_auth': 'Jira',
       'slack_auth': 'Slack',
@@ -65,7 +66,7 @@ function IntegrationsContent() {
       return;
     }
 
-    // ⚡ MASTER CALLBACK HANDLER (Handles ALL OAuth connections securely)
+    // ⚡ MASTER CALLBACK HANDLER 
     const processIntegrations = async () => {
       try {
         const token = await getToken();
@@ -75,56 +76,62 @@ function IntegrationsContent() {
         let fetchBody: any = {};
         let currentToolName = '';
 
+        // 🚨 ENVIRONMENT FIX: Detect if running locally or in production
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const API_BASE_URL = isLocalhost 
+          ? 'http://localhost:10000' 
+          : 'https://agentos-api-5suh.onrender.com';
+
         // 1. GITHUB FLOW
         if (installationId) {
-          fetchUrl = `https://agentos-api-5suh.onrender.com/api/integrations/github/connect`;
+          fetchUrl = `${API_BASE_URL}/api/integrations/github/connect`;
           fetchBody = { installation_id: installationId, workspace_id: workspaceId };
           currentToolName = 'GitHub';
         } 
         // 2. GOOGLE FLOW
         else if (state === 'google_auth') {
           const targetTool = localStorage.getItem('google_target_tool') || 'Google';
-          fetchUrl = `https://agentos-api-5suh.onrender.com/api/integrations/google/connect`;
+          fetchUrl = `${API_BASE_URL}/api/integrations/google/connect`;
           fetchBody = { auth_code: authCode, workspace_id: workspaceId, target: targetTool };
           currentToolName = targetTool;
         }
         // 3. FRESHDESK FLOW
         else if (state === 'freshdesk_auth') {
           const freshdeskSubdomain = localStorage.getItem('temp_freshdesk_subdomain');
-          fetchUrl = `https://agentos-api-5suh.onrender.com/api/integrations/freshdesk/connect`;
+          fetchUrl = `${API_BASE_URL}/api/integrations/freshdesk/connect`;
           fetchBody = { auth_code: authCode, workspace_id: workspaceId, subdomain: freshdeskSubdomain };
           currentToolName = 'Freshdesk';
         }
-        // 4. UNIVERSAL OAUTH FLOW
+        // 4. UNIVERSAL OAUTH FLOW (JIRA COMES HERE)
         else if (state && oauthToolMap[state]) {
           currentToolName = oauthToolMap[state];
           const endpoint = currentToolName.toLowerCase();
-          fetchUrl = `https://agentos-api-5suh.onrender.com/api/integrations/${endpoint}/connect`;
-          fetchBody = { auth_code: authCode, workspace_id: workspaceId };
+          fetchUrl = `${API_BASE_URL}/api/integrations/${endpoint}/connect`;
+          fetchBody = { auth_code: authCode, workspace_id: workspaceId }; // EXACTLY what FastAPI needs
         }
-        // 5. ZENDESK FLOW (No state, uses subdomain flag)
+        // 5. ZENDESK FLOW 
         else if (!state && localStorage.getItem('temp_zendesk_subdomain')) {
           const zendeskSubdomain = localStorage.getItem('temp_zendesk_subdomain');
-          fetchUrl = `https://agentos-api-5suh.onrender.com/api/integrations/zendesk/connect`;
+          fetchUrl = `${API_BASE_URL}/api/integrations/zendesk/connect`;
           fetchBody = { auth_code: authCode, workspace_id: workspaceId, subdomain: zendeskSubdomain };
           currentToolName = 'Zendesk';
         }
-        // 6. SALESFORCE FLOW (No state, no zendesk subdomain)
+        // 6. SALESFORCE FLOW 
         else if (!state && !localStorage.getItem('temp_zendesk_subdomain')) {
-          fetchUrl = `https://agentos-api-5suh.onrender.com/api/integrations/salesforce/connect`;
+          fetchUrl = `${API_BASE_URL}/api/integrations/salesforce/connect`;
           fetchBody = { auth_code: authCode, workspace_id: workspaceId };
           currentToolName = 'Salesforce';
         }
 
         // Execute API Call if a valid flow was matched
         if (fetchUrl && currentToolName) {
-          console.log(`🔗 Sending ${currentToolName} Auth Code to backend...`);
+          console.log(`🔗 Sending ${currentToolName} Auth Code to backend at ${fetchUrl}...`);
           
           const response = await fetch(fetchUrl, {
             method: 'POST',
             headers: { 
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}` // ✅ ALL flows are now secured
+              'Authorization': `Bearer ${token}` 
             },
             body: JSON.stringify(fetchBody)
           });
