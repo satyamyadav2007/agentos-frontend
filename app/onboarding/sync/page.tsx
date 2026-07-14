@@ -2,234 +2,345 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, CircleDashed, Loader2, Database, BrainCircuit, Network, AlertTriangle, TrendingDown, Lightbulb, Terminal } from 'lucide-react';
+import { 
+  CheckCircle2, Loader2, Server, Database, BrainCircuit, 
+  Activity, AlertCircle, ArrowRight, Network, GitPullRequest, 
+  Terminal, ShieldCheck, Zap 
+} from 'lucide-react';
 
-// Defines the strict enterprise stages of our AgentOS sync
-type SyncStage = 'pending' | 'loading' | 'done' | 'error';
-
-interface PipelineStep {
-  id: string;
-  label: string;
-  status: SyncStage;
-  details?: string;
-}
-
-interface EarlyInsight {
-  id: string;
-  type: 'risk' | 'bug' | 'feature' | 'info';
-  text: string;
-  value?: string;
-  icon: any;
-}
-
-export default function BootstrappingEngineScreen() {
+export default function MissionControlSync() {
   const router = useRouter();
   const logsEndRef = useRef<HTMLDivElement>(null);
+  // 🧠 THE UNIVERSAL SYNC ENGINE STATE
+  const [engineState, setEngineState] = useState({
+    overallProgress: 0,
+    eta: "Estimating...",
+    isCoreComplete: false,
+    apps: [] as {name: string, status: string, progress: number, items: string}[],
+    agents: [] as {name: string, status: string}[],
+    metrics: { repos: 0, issues: 0, prs: 0, commits: 0 },
+    dataQuality: { collected: 0, normalized: 0, embedded: 0, graphNodes: 0, relationships: 0 },
+    earlyFindings: [] as {label: string, value: string}[],
+    logs: [] as {time: string, source: string, msg: string}[]
+  });
+
+  // UI ko change na karna pade isliye purane variables extract kar liye
+  const { overallProgress, eta, isCoreComplete, apps,  metrics, dataQuality, earlyFindings, logs } = engineState;
+
   
-  const [pipeline, setPipeline] = useState<PipelineStep[]>([
-    { id: 'workspace', label: 'Workspace Allocated & Secured', status: 'done' },
-    { id: 'auth', label: 'OAuth Connections Verified', status: 'done' },
-    { id: 'discovery', label: 'Discovering Repositories & Assets', status: 'loading' },
-    { id: 'ingestion', label: 'Ingesting High-Priority Data', status: 'pending' },
-    { id: 'ai', label: 'AI Theme & Revenue Analysis', status: 'pending' },
-    { id: 'graph', label: 'Building Knowledge Graph', status: 'pending' }
-  ]);
-
-  const [logs, setLogs] = useState<string[]>(['> Initializing AgentOS Bootstrapping Engine...']);
-  const [insights, setInsights] = useState<EarlyInsight[]>([]);
-  const [isReady, setIsReady] = useState(false);
-
-  // Auto-scroll logs
+  // Add this inside your frontend component to kick off the backend job
   useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [logs]);
-
-  useEffect(() => {
-    // ⚡ REAL ENTERPRISE IMPLEMENTATION:
-    // In production, replace this simulation with actual SSE (Server-Sent Events) or WebSocket
-    // Example: 
-    // const eventSource = new EventSource('/api/jobs/sync/events?workspace_id=' + workspaceId);
-    // eventSource.onmessage = (e) => updatePipeline(JSON.parse(e.data));
-
-    // --- SIMULATED SSE BACKEND EVENTS FOR UI DEMO ---
-    const addLog = (msg: string) => setLogs(prev => [...prev, `> ${msg}`]);
-    const updateStep = (id: string, status: SyncStage, details?: string) => {
-      setPipeline(prev => prev.map(step => step.id === id ? { ...step, status, details } : step));
+    const startBackendSync = async () => {
+      const workspaceId = localStorage.getItem('agentos_workspace_id');
+      if (workspaceId) {
+        await fetch('https://agentos-api-5suh.onrender.com/api/sync/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workspace_id: workspaceId })
+        });
+      }
     };
-
-    let timer = 0;
-    
-    // Stage 1: Discovery
-    setTimeout(() => {
-      addLog("GitHub: Found 42 repositories. Initiating metadata sync.");
-      addLog("Jira: Found 3 active projects (ENG, PROD, DES).");
-      updateStep('discovery', 'done', '42 Repos, 3 Projects discovered');
-      updateStep('ingestion', 'loading');
-    }, timer += 2500);
-
-    // Stage 2: Ingestion & Live Insights
-    setTimeout(() => {
-      addLog("Ingesting latest 500 issues for baseline context.");
-      updateStep('ingestion', 'done', 'Baseline data imported. Background sync started.');
-      updateStep('ai', 'loading');
-      
-      // Reveal Early Insight 1
-      setInsights(prev => [...prev, {
-        id: 'i1', type: 'bug', text: 'Recurring Authentication Bugs Detected', value: '18 instances', icon: AlertTriangle
-      }]);
-    }, timer += 3000);
-
-    // Stage 3: AI Analysis
-    setTimeout(() => {
-      addLog("AI: Correlating customer tickets with GitHub pull requests.");
-      
-      // Reveal Early Insight 2 & 3
-      setInsights(prev => [...prev, 
-        { id: 'i2', type: 'risk', text: 'Estimated Revenue at Risk', value: '$1.2M', icon: TrendingDown },
-        { id: 'i3', type: 'feature', text: 'High-Priority Feature Requests', value: '14 identified', icon: Lightbulb }
-      ]);
-      
-      updateStep('ai', 'done', 'Pain points and revenue risks calculated');
-      updateStep('graph', 'loading');
-    }, timer += 3500);
-
-    // Stage 4: Knowledge Graph
-    setTimeout(() => {
-      addLog("Neo4j: Generating vector embeddings for cross-tool correlation.");
-      addLog("System: Base context window ready. Delegating historical sync to background worker.");
-      updateStep('graph', 'done', 'Vectors generated. AgentOS core online.');
-      setIsReady(true);
-    }, timer += 3500);
-
+    startBackendSync();
   }, []);
 
-  const handleEnterDashboard = () => {
-    // Navigates to the real dashboard while the background sync continues
-    router.push('/dashboard');
+  // ✅ 2. Backend se connected apps fetch karne wala block
+  useEffect(() => {
+    const fetchConnectedApps = async () => {
+      try {
+        const workspaceId = localStorage.getItem('agentos_workspace_id');
+        if (!workspaceId) return;
+
+        // Tumhare naye endpoint par call
+        const res = await fetch(`https://agentos-api-5suh.onrender.com/api/integrations/status?workspace_id=${workspaceId}`);
+        const data = await res.json();
+
+        // Backend se array aayega, e.g., ["GitHub", "Linear", "Notion"]
+        if (data.connected_tools && data.connected_tools.length > 0) {
+          const dynamicApps = data.connected_tools.map((toolName: string) => ({
+            name: toolName,
+            status: 'waiting', // Default status jab tak sync start na ho
+            progress: 0,
+            items: 'Waiting'
+          }));
+          setEngineState(prev => ({ ...prev, apps: dynamicApps }));
+        }
+      } catch (error) {
+        console.error("🚨 Failed to fetch connected apps:", error);
+      }
+    };
+
+    fetchConnectedApps();
+  }, []);
+  // ✅ 1. Agents state ko empty array se initialize karo
+  const [agents, setAgents] = useState<{name: string, status: string}[]>([]);
+
+  // ✅ 2. Backend se active agents fetch karne wala block
+  useEffect(() => {
+    const fetchActiveAgents = async () => {
+      try {
+        const workspaceId = typeof window !== 'undefined' ? localStorage.getItem('agentos_workspace_id') : null;
+        if (!workspaceId) return;
+
+        // Backend endpoint call (Example: /api/agents/active)
+        const res = await fetch(`https://agentos-api-5suh.onrender.com/api/agents/active?workspace_id=${workspaceId}`);
+        const data = await res.json();
+
+        // Backend se list aayegi: ["Cleaner Agent", "Theme Agent", "Sentiment Agent", "Forecast Agent"]
+        if (data.active_agents && data.active_agents.length > 0) {
+          const dynamicAgents = data.active_agents.map((agentName: string) => ({
+            name: agentName,
+            status: 'waiting' // Initial default status
+          }));
+          setAgents(dynamicAgents);
+        }
+      } catch (error) {
+        console.error("🚨 Failed to fetch active agents:", error);
+      }
+    };
+
+    fetchActiveAgents();
+  }, []);
+  
+  // Auto-scroll logs
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [logs]);
+
+  // ==========================================
+  // 🚀 WEBSOCKET SIMULATOR (Replace with real WS later)
+  // ==========================================
+  useEffect(() => {
+    // Render URL ko WSS (WebSocket Secure) protocol me convert kar rahe hain
+    const wsUrl = 'wss://agentos-api-5suh.onrender.com/ws';
+    const ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+      console.log("🟢 WebSocket Connected to AgentOS Engine");
+      setEngineState(prev => ({
+        ...prev,
+        logs: [
+          ...prev.logs, 
+          {
+            time: new Date().toLocaleTimeString('en-US', { hour12: false }),
+            source: 'System',
+            msg: 'Connected to AgentOS Universal Sync Engine...'
+          }
+        ]
+      }));
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        
+        // ⚡ UNIVERSAL SYNC: Backend ab seedha poora state object bhejega!
+        if (payload.type === 'UNIVERSAL_STATE_UPDATE') {
+           setEngineState(payload.data);
+        }
+        
+      } catch (error) {
+        console.error("🚨 WebSocket Payload Parse Error:", error);
+      }
+    };
+    ws.onerror = (error) => {
+      console.error("🚨 WebSocket Error:", error);
+    };
+
+    ws.onclose = () => {
+      console.log("🔴 WebSocket Disconnected");
+    };
+
+    // Cleanup when user leaves the page
+    return () => {
+      ws.close();
+    };
+  }, []);
+
+  // ==========================================
+  // 🎨 UI COMPONENTS
+  // ==========================================
+  const getStatusColor = (status: string) => {
+    if (status === 'done') return 'text-green-400';
+    if (status === 'syncing' || status === 'running') return 'text-blue-400 animate-pulse';
+    if (status === 'error') return 'text-red-400';
+    return 'text-gray-500';
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-6 md:p-12 font-sans flex flex-col items-center">
+    <div className="min-h-screen bg-[#050505] text-white p-6 md:p-10 font-sans selection:bg-blue-500/30">
       
-      {/* Header */}
-      <div className="w-full max-w-5xl flex items-center justify-between mb-12">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-blue-900/30 border border-blue-500/50 rounded-xl flex items-center justify-center">
-            <BrainCircuit className="text-blue-400" size={24} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold uppercase tracking-wide">Bootstrapping Workspace</h1>
-            <p className="text-gray-400 text-sm">Building unified intelligence graph from connected tools</p>
-          </div>
+      {/* HEADER */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 border-b border-gray-800 pb-6">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-3">
+            <Server className="text-blue-500" /> Mission Control
+          </h1>
+          <p className="text-gray-400 mt-1">AgentOS Enterprise Initialization Sequence</p>
         </div>
-        
-        {isReady && (
-          <button 
-            onClick={handleEnterDashboard}
-            className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-8 rounded-lg shadow-[0_0_20px_rgba(37,99,235,0.3)] transition-all animate-fade-in flex items-center gap-2"
-          >
-            Open Executive Dashboard
-          </button>
-        )}
+        <div className="mt-4 md:mt-0 text-right">
+          <div className="text-sm text-gray-400">Estimated Remaining</div>
+          <div className="text-2xl font-mono text-blue-400">{eta}</div>
+        </div>
       </div>
 
-      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-8">
-        
-        {/* Left Column: The Pipeline */}
-        <div className="bg-[#0a0a0a] border border-gray-800 rounded-2xl p-8 shadow-xl">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-widest mb-8">
-            Execution Pipeline
-          </h2>
-          
-          <div className="space-y-6">
-            {pipeline.map((step, index) => (
-              <div key={step.id} className="relative flex gap-4">
-                {/* Connecting Line */}
-                {index !== pipeline.length - 1 && (
-                  <div className={`absolute left-[11px] top-8 bottom-[-24px] w-0.5 ${step.status === 'done' ? 'bg-green-500/30' : 'bg-gray-800'}`} />
-                )}
-                
-                {/* Status Icon */}
-                <div className="relative z-10 bg-[#0a0a0a] pt-1">
-                  {step.status === 'done' && <CheckCircle2 className="text-green-500" size={24} />}
-                  {step.status === 'loading' && <Loader2 className="text-blue-500 animate-spin" size={24} />}
-                  {step.status === 'pending' && <CircleDashed className="text-gray-700" size={24} />}
-                </div>
+      {/* MAIN OVERALL PROGRESS */}
+      <div className="mb-10">
+        <div className="flex justify-between mb-2 text-sm font-bold">
+          <span>Overall Pipeline Progress</span>
+          <span className="text-blue-400">{overallProgress}%</span>
+        </div>
+        <div className="w-full bg-gray-900 h-2 rounded-full overflow-hidden border border-gray-800">
+          <div 
+            className="bg-blue-500 h-full transition-all duration-500 ease-out shadow-[0_0_15px_rgba(59,130,246,0.6)]"
+            style={{ width: `${overallProgress}%` }}
+          />
+        </div>
+      </div>
 
-                {/* Content */}
-                <div className="flex-1 pb-2">
-                  <h3 className={`text-lg font-medium ${step.status === 'pending' ? 'text-gray-600' : 'text-gray-200'}`}>
-                    {step.label}
-                  </h3>
-                  {step.details && (
-                    <p className="text-sm text-gray-500 mt-1">{step.details}</p>
+      {/* GRID LAYOUT */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        {/* COLUMN 1: INTEGRATIONS & QUEUE */}
+        <div className="space-y-6">
+          <div className="bg-[#0a0a0a] border border-gray-800 rounded-xl p-5">
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <Network className="w-5 h-5 text-gray-400" /> Integration Queue
+            </h2>
+            <div className="space-y-4">
+              {apps.map((app, i) => (
+                <div key={i} className="bg-black border border-gray-800 rounded-lg p-3">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-semibold">{app.name}</span>
+                    <span className={`text-xs uppercase font-bold ${getStatusColor(app.status)}`}>
+                      {app.status === 'done' ? <CheckCircle2 className="w-4 h-4 inline mr-1" /> : null}
+                      {app.status}
+                    </span>
+                  </div>
+                  {app.status !== 'disconnected' && (
+                    <>
+                      <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden mb-1">
+                        <div className={`h-full transition-all duration-300 ${app.status === 'done' ? 'bg-green-500' : 'bg-blue-500'}`} style={{ width: `${app.progress}%` }} />
+                      </div>
+                      <div className="text-xs text-gray-500 text-right">{app.items}</div>
+                    </>
                   )}
                 </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Terminal / Logger */}
-          <div className="mt-10 bg-black border border-gray-800 rounded-xl p-4 h-48 overflow-y-auto font-mono text-xs text-gray-400">
-            <div className="flex items-center gap-2 mb-3 border-b border-gray-800 pb-2 text-gray-600">
-              <Terminal size={14} /> Live System Logs
+              ))}
             </div>
-            {logs.map((log, i) => (
-              <div key={i} className="mb-1 opacity-80 animate-fade-in">{log}</div>
-            ))}
-            <div ref={logsEndRef} />
           </div>
-        </div>
 
-        {/* Right Column: Early Insights */}
-        <div className="flex flex-col gap-6">
-          <div className="bg-gradient-to-br from-blue-900/10 to-purple-900/10 border border-blue-900/30 rounded-2xl p-8 shadow-xl flex-1">
-            <h2 className="text-sm font-semibold text-blue-400 uppercase tracking-widest mb-2">
-              Value Discovered
+          <div className="bg-[#0a0a0a] border border-gray-800 rounded-xl p-5">
+             <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <Database className="w-5 h-5 text-gray-400" /> Real-time Metrics
             </h2>
-            <p className="text-gray-400 text-sm mb-8">
-              AgentOS is extracting insights while background sync continues.
-            </p>
-
-            <div className="space-y-4">
-              {insights.length === 0 ? (
-                <div className="h-40 flex flex-col items-center justify-center text-gray-600 border border-dashed border-gray-800 rounded-xl">
-                  <Network className="mb-2 opacity-50" size={24} />
-                  <p className="text-sm">Awaiting correlation data...</p>
-                </div>
-              ) : (
-                insights.map((insight) => {
-                  const Icon = insight.icon;
-                  return (
-                    <div key={insight.id} className="bg-black/50 border border-gray-800 p-4 rounded-xl flex items-center gap-4 animate-fade-in">
-                      <div className={`p-3 rounded-lg ${
-                        insight.type === 'risk' ? 'bg-red-500/10 text-red-400' :
-                        insight.type === 'bug' ? 'bg-orange-500/10 text-orange-400' :
-                        'bg-green-500/10 text-green-400'
-                      }`}>
-                        <Icon size={20} />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-400">{insight.text}</p>
-                        <p className="text-xl font-bold text-white">{insight.value}</p>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
+            <div className="grid grid-cols-2 gap-4">
+               {Object.entries(metrics).map(([key, val]) => (
+                 <div key={key} className="bg-black p-3 border border-gray-800 rounded text-center">
+                   <div className="text-2xl font-mono text-white">{val.toLocaleString()}</div>
+                   <div className="text-xs text-gray-500 uppercase">{key}</div>
+                 </div>
+               ))}
             </div>
-
-            {isReady && (
-              <div className="mt-8 p-4 bg-green-500/10 border border-green-500/20 rounded-xl text-green-400 text-sm flex items-start gap-3 animate-fade-in">
-                <CheckCircle2 size={18} className="shrink-0 mt-0.5" />
-                <p>
-                  <strong>Baseline established.</strong> You can now use the dashboard. AgentOS will continue syncing historical tickets and older repositories silently in the background.
-                </p>
-              </div>
-            )}
           </div>
         </div>
 
+        {/* COLUMN 2: AI AGENTS & INSIGHTS */}
+        <div className="space-y-6">
+          <div className="bg-[#0a0a0a] border border-gray-800 rounded-xl p-5 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-2"><BrainCircuit className="w-20 h-20 text-gray-800 opacity-20" /></div>
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2 relative z-10">
+              <Activity className="w-5 h-5 text-gray-400" /> AI CPO Live Thinking
+            </h2>
+            <div className="space-y-3 relative z-10">
+              {agents.map((agent, i) => (
+                <div key={i} className="flex items-center gap-3 text-sm">
+                  {agent.status === 'running' ? <Loader2 className="w-4 h-4 text-blue-400 animate-spin" /> : 
+                   agent.status === 'done' ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : 
+                   <div className="w-4 h-4 rounded-full border border-gray-600" />}
+                  <span className={agent.status === 'waiting' ? 'text-gray-500' : 'text-gray-200'}>
+                    {agent.name}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-[#0a0a0a] border border-gray-800 rounded-xl p-5">
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <Network className="w-5 h-5 text-gray-400" /> Graph Knowledge Build
+            </h2>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between border-b border-gray-800 pb-2"><span className="text-gray-400">Raw Data Collected</span> <span className="font-mono text-gray-300">{dataQuality.collected.toLocaleString()}</span></div>
+              <div className="flex justify-between border-b border-gray-800 py-2"><span className="text-gray-400">Signals Normalized</span> <span className="font-mono text-blue-400">{dataQuality.normalized.toLocaleString()}</span></div>
+              <div className="flex justify-between border-b border-gray-800 py-2"><span className="text-gray-400">Vectors Embedded</span> <span className="font-mono text-purple-400">{dataQuality.embedded.toLocaleString()}</span></div>
+              <div className="flex justify-between border-b border-gray-800 py-2"><span className="text-gray-400">Neo4j Nodes Created</span> <span className="font-mono text-emerald-400">{dataQuality.graphNodes.toLocaleString()}</span></div>
+              <div className="flex justify-between pt-2"><span className="text-emerald-500 font-bold">Graph Relationships</span> <span className="font-mono text-emerald-500">{dataQuality.relationships.toLocaleString()}</span></div>
+            </div>
+          </div>
+
+          {earlyFindings.length > 0 && (
+            <div className="bg-blue-900/10 border border-blue-900/30 rounded-xl p-5">
+              <h2 className="text-lg font-bold text-blue-400 mb-3 flex items-center gap-2">
+                <Zap className="w-5 h-5" /> Early AI Findings
+              </h2>
+              {earlyFindings.map((finding, i) => (
+                <div key={i} className="mb-2 last:mb-0">
+                  <div className="text-xs text-gray-400">{finding.label}</div>
+                  <div className="text-sm font-semibold">{finding.value}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* COLUMN 3: LIVE TERMINAL & LAUNCH */}
+        {/* LIVE TERMINAL BOX */}
+        <div className="space-y-6 flex flex-col h-full">
+          <div className="bg-[#050505] border border-gray-800 rounded-xl overflow-hidden flex-1 flex flex-col shadow-lg shadow-black/50">
+            
+            {/* Terminal Header */}
+            <div className="bg-[#111] px-4 py-2 border-b border-gray-800 flex items-center gap-2 text-xs font-mono text-gray-400">
+              <Terminal className="w-4 h-4 text-gray-500" /> root@agentos-core ~
+            </div>
+            
+            {/* Terminal Body (Live Logs) */}
+            <div className="p-4 font-mono text-xs overflow-y-auto max-h-[400px] flex-1 space-y-2">
+              
+              {/* Agar logs khali hain toh waiting state */}
+              {logs.length === 0 ? (
+                <div className="text-gray-600 animate-pulse">Waiting for backend connection...</div>
+              ) : (
+                /* Asli live logs backend se */
+                logs.map((log, i) => (
+                  <div key={i} className="leading-relaxed">
+                    <span className="text-gray-600">[{log.time}]</span>{' '}
+                    <span className="text-purple-400">[{log.source}]</span>{' '}
+                    <span className="text-green-400">{log.msg}</span>
+                  </div>
+                ))
+              )}
+              
+              {/* Auto-scroll anchor */}
+              <div ref={logsEndRef} />
+            </div>
+          </div>
+
+          {/* BACKGROUND SYNC & DASHBOARD BUTTON */}
+          <div className={`transition-all duration-500 ${isCoreComplete ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}>
+            <div className="bg-green-900/10 border border-green-900/30 rounded-xl p-5 text-center">
+              <CheckCircle2 className="w-10 h-10 text-green-500 mx-auto mb-3" />
+              <h3 className="font-bold text-lg mb-1">Core Sync Complete</h3>
+              <p className="text-sm text-gray-400 mb-4">AgentOS has built the initial knowledge graph. Deep historical sync will continue in the background (32%).</p>
+              <button 
+                onClick={() => router.push('/dashboard')}
+                className="w-full bg-white text-black hover:bg-gray-200 font-bold py-3 px-4 rounded flex justify-center items-center gap-2 transition-colors"
+              >
+                Open Executive Dashboard <ArrowRight className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+        </div>
       </div>
     </div>
   );
