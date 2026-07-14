@@ -460,7 +460,7 @@ export default function IntegrationCard({ name, logoUrl, isConnected, capabiliti
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-gray-900 rounded-xl flex items-center justify-center border border-gray-700">
              {/* Logo would go here */}
-             <span className="text-xl font-bold">{name.charAt(0)}</span>
+             <span className="text-xl font-bold">{name ? name.charAt(0) : '?'}</span>
           </div>
           <div>
             <h3 className="text-xl font-bold text-white">{name}</h3>
