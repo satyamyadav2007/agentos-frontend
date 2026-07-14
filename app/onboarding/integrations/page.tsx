@@ -449,18 +449,14 @@ export default function IntegrationCard({ name, logoUrl, isConnected, capabiliti
       return;
     }
   };
-
-  
-
- return (
+  return (
     <div className={`border rounded-2xl p-6 transition-all ${isConnected ? 'bg-[#0a101a] border-blue-500/30' : 'bg-[#111] border-gray-800'}`}>
       
       {/* HEADER */}
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-gray-900 rounded-xl flex items-center justify-center border border-gray-700">
-             {/* Logo would go here */}
-             <span className="text-xl font-bold">{name ? name.charAt(0) : '?'}</span>
+            <span className="text-xl font-bold">{name ? name.charAt(0) : '?'}</span>
           </div>
           <div>
             <h3 className="text-xl font-bold text-white">{name}</h3>
@@ -481,7 +477,8 @@ export default function IntegrationCard({ name, logoUrl, isConnected, capabiliti
           <div>
             <h4 className="text-gray-400 font-medium mb-2 uppercase tracking-wider text-[10px]">Capabilities</h4>
             <div className="grid grid-cols-2 gap-2">
-              {capabilities.map(cap => (
+              {/* Optional chaining (?) added to prevent map errors */}
+              {capabilities?.map(cap => (
                 <div key={cap} className="flex items-center gap-2 text-gray-300">
                   <CheckCircle2 size={14} className="text-blue-500" /> {cap}
                 </div>
@@ -492,7 +489,8 @@ export default function IntegrationCard({ name, logoUrl, isConnected, capabiliti
           <div>
             <h4 className="text-gray-400 font-medium mb-2 uppercase tracking-wider text-[10px]">Permissions Required</h4>
             <ul className="text-gray-400 space-y-1 list-disc list-inside opacity-70">
-              {permissions.map(perm => <li key={perm}>{perm}</li>)}
+              {/* Optional chaining (?) added to prevent map errors */}
+              {permissions?.map(perm => <li key={perm}>{perm}</li>)}
             </ul>
           </div>
 
@@ -511,20 +509,24 @@ export default function IntegrationCard({ name, logoUrl, isConnected, capabiliti
             <span className="font-medium">{syncStats?.lastSync}</span>
           </div>
           <div className="flex justify-between items-center text-gray-300 pb-3 border-b border-gray-800">
-             <span className="flex items-center gap-2"><Database size={14} className="text-purple-400"/> Total Records</span>
-             {/* Added optional chaining here to prevent crashes if recordsImported is undefined */}
-             <span className="font-mono">{syncStats?.recordsImported?.toLocaleString()}</span>
+            <span className="flex items-center gap-2"><Database size={14} className="text-purple-400"/> Total Records</span>
+            {/* Optional chaining added for recordsImported */}
+            <span className="font-mono">{syncStats?.recordsImported?.toLocaleString()}</span>
           </div>
           <div className="flex gap-2 mt-4">
-             <button className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 rounded-lg transition-all text-xs">
-               Sync Now
-             </button>
-             <button className="px-3 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-all">
-               <Settings size={16} />
-             </button>
+            <button className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 rounded-lg transition-all text-xs">
+              Sync Now
+            </button>
+            <button className="px-3 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-all">
+              <Settings size={16} />
+            </button>
           </div>
         </div>
       )}
     </div>
   );
 }
+
+
+
+
