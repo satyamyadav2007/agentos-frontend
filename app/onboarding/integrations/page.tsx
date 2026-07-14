@@ -1,5 +1,5 @@
 'use client';
-
+import { useAuth } from '@clerk/nextjs';
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { CheckCircle2, ArrowRight, Link as LinkIcon } from 'lucide-react';
@@ -30,7 +30,7 @@ function IntegrationsContent() {
 
   // Fallback for getToken if not using Clerk. Replace with your auth method if needed.
   // const { getToken } = useAuth(); 
-  const getToken = async () => "mock_token_for_now"; 
+  const { getToken } = useAuth();
 
   // ==========================================
   // ⚡ MASTER CALLBACK HANDLER (OAuth Returns)
