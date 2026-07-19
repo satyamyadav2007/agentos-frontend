@@ -25,12 +25,25 @@ function IntegrationsContent() {
   const searchParams = useSearchParams();
   
   // States
-  const [connectedTools, setConnectedTools] = useState<string[]>([]);
+  // ⚡ FIX 1: Read from localStorage on initial load
+  const [connectedTools, setConnectedTools] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("agentos_connected_tools");
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
   const [isConnecting, setIsConnecting] = useState<string | null>(null);
 
   // Fallback for getToken if not using Clerk. Replace with your auth method if needed.
   // const { getToken } = useAuth(); 
   const { getToken } = useAuth();
+  // ⚡ FIX 2: Automatically backup connectedTools to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("agentos_connected_tools", JSON.stringify(connectedTools));
+    }
+  }, [connectedTools]);
 
   // ==========================================
   // ⚡ MASTER CALLBACK HANDLER (OAuth Returns)
@@ -161,7 +174,7 @@ function IntegrationsContent() {
       const clientId = "zjaxoFFVOp1dhVrcWsoKqqrAfnMADIfq"; 
       
       // ⚡ FIX: Removed 'read:jira-work' and switched entirely to Granular Scopes
-      const jiraAuthUrl = "https://auth.atlassian.com/authorize?audience=api.atlassian.com&client_id=zjaxoFFVOp1dhVrcWsoKqqrAfnMADIfq&scope=read%3Aissue%3Ajira%20read%3Aproject%3Ajira%20read%3Auser%3Ajira%20read%3Aboard-scope%3Ajira-software%20read%3Asprint%3Ajira-software%20read%3Aissue%3Ajira-software%20offline_access&redirect_uri=https%3A%2F%2Fagentos-frontend-azure.vercel.app%2Fonboarding%2Fintegrations&state=jira_auth&response_type=code&prompt=consent";
+      const jiraAuthUrl = "https://auth.atlassian.com/authorize?audience=api.atlassian.com&client_id=zjaxoFFVOp1dhVrcWsoKqqrAfnMADIfq&scope=read%3Aissue%3Ajira%20read%3Aproject%3Ajira%20read%3Aboard-scope%3Ajira-software%20read%3Aissue%3Ajira-software%20read%3Asprint%3Ajira-software%20read%3Auser%3Ajira%20offline_access&redirect_uri=https%3A%2F%2Fagentos-frontend-azure.vercel.app%2Fonboarding%2Fintegrations&state=jira_auth&response_type=code&prompt=consent";
       
       window.location.href = jiraAuthUrl;
       return;
@@ -353,18 +366,21 @@ function IntegrationsContent() {
       console.log("🚀 Initiating Mission Control Sync...");
 
       // 2. Backend ko token ke sath Secure Request bhejo
+      // ⚡ FIX 3: Bulletproof fallback to ensure backend NEVER gets an empty array
+      const savedTools = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('agentos_connected_tools') || '[]') : [];
+      const finalIntegrations = connectedTools.length > 0 ? connectedTools : savedTools;
+
       const response = await fetch('https://agentos-api-5suh.onrender.com/api/sync/start', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` // ⚡ Ye line 401 error ko fix karegi
+          'Authorization': `Bearer ${token}` 
         },
         body: JSON.stringify({
           workspace_id: workspaceId,
-          integrations: connectedTools
+          integrations: finalIntegrations // ⚡ Ab backend ke paas ["Jira"] zaroor jayega!
         })
       });
-
       if (!response.ok) {
         console.error("🚨 Backend rejected sync start:", await response.text());
       } else {
